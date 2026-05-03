@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0a0f">
+<title>DroneCheck ES</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a0f;
+  --surface: #12121a;
+  --surface2: #1a1a26;
+  --border: #2a2a3a;
+  --accent: #00e5a0;
+  --accent2: #ff6b35;
+  --warn: #ffd166;
+  --danger: #ff4444;
+  --ok: #00e5a0;
+  --text: #e8e8f0;
+  --muted: #6b6b85;
+  --font-head: 'Syne', sans-serif;
+  --font-mono: 'Space Mono', monospace;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  overflow-x: hidden;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(0,229,160,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,229,160,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none; z-index: 0;
+}
+
+/* ── TABS ── */
+.tab-bar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  padding-bottom: var(--safe-bottom);
+  z-index: 100;
+}
+.tab-btn {
+  flex: 1; background: none; border: none;
+  color: var(--muted); font-family: var(--font-mono);
+  font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+  padding: 10px 4px 8px;
+  cursor: pointer; transition: color 0.2s;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.tab-btn.active { color: var(--accent); }
+.tab-icon { font-size: 18px; line-height: 1; }
+
+.page { display: none; position: relative; z-index: 1; padding-bottom: calc(70px + var(--safe-bottom)); }
+.page.active { display: block; }
+
+.container { max-width: 680px; margin: 0 auto; padding: 20px 16px; }
+
+/* ── HEADER ── */
+header { margin-bottom: 24px; padding-top: 8px; }
+.logo { font-family: var(--font-head); font-size: 26px; font-weight: 800; letter-spacing: -1px; color: var(--accent); }
+.logo span { color: var(--text); }
+.subtitle { font-size: 10px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-top: 3px; }
+.badge-row { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.badge { font-size: 9px; letter-spacing: 1px; text-transform: uppercase; padding: 2px 7px; border-radius: 2px; }
+.badge-green { background: rgba(0,229,160,0.12); color: var(--accent); border: 1px solid rgba(0,229,160,0.25); }
+.badge-orange { background: rgba(255,107,53,0.12); color: var(--accent2); border: 1px solid rgba(255,107,53,0.25); }
+
+/* ── SEARCH ── */
+.search-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+.search-label { font-size: 10px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+.search-row { display: flex; gap: 8px; }
+input[type="text"] {
+  flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text); font-family: var(--font-mono); font-size: 13px; padding: 10px 12px; outline: none;
+  transition: border-color 0.2s;
+}
+input[type="text"]:focus { border-color: var(--accent); }
+input[type="text"]::placeholder { color: var(--muted); }
+.btn {
+  background: var(--accent); color: #000; border: none; border-radius: 4px;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; padding: 10px 14px; cursor: pointer; transition: opacity 0.2s;
+  white-space: nowrap;
+}
+.btn:hover { opacity: 0.85; }
+.btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn-sm {
+  background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 4px;
+  font-family: var(--font-mono); font-size: 10px; padding: 7px 10px; cursor: pointer;
+  transition: color 0.2s, border-color 0.2s; white-space: nowrap;
+}
+.btn-sm:hover { color: var(--text); border-color: var(--muted); }
+.geo-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.geo-hint { font-size: 10px; color: var(--muted); }
+.status-bar {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 4px;
+  padding: 9px 12px; font-size: 11px; color: var(--muted); margin-top: 10px;
+  min-height: 34px; display: flex; align-items: center; gap: 8px;
+}
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+.dot.green { background: var(--accent); box-shadow: 0 0 5px var(--accent); }
+.dot.orange { background: var(--warn); box-shadow: 0 0 5px var(--warn); }
+.dot.red { background: var(--danger); box-shadow: 0 0 5px var(--danger); }
+.dot.pulse { animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+/* ── LOCATION RESULT ── */
+.location-result { background: rgba(0,229,160,0.05); border: 1px solid rgba(0,229,160,0.2); border-radius: 6px; padding: 10px 14px; margin-bottom: 14px; display: none; }
+.location-result.show { display: block; }
+.loc-name { font-family: var(--font-head); font-size: 15px; font-weight: 700; color: var(--accent); }
+.loc-coords { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+/* ── ALERT BANNER ── */
+.alert-banner { border-radius: 6px; padding: 12px 14px; margin-bottom: 14px; font-size: 12px; line-height: 1.5; display: none; border-left: 3px solid; }
+.alert-banner.show { display: block; }
+.alert-banner.danger { background: rgba(255,68,68,0.08); border-color: var(--danger); color: #ff9090; }
+.alert-banner.warn { background: rgba(255,209,102,0.08); border-color: var(--warn); color: var(--warn); }
+.alert-title { font-weight: 700; font-family: var(--font-head); font-size: 13px; margin-bottom: 3px; }
+
+/* ── PROGRESS ── */
+.progress-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; display: none; }
+.progress-card.show { display: block; }
+.progress-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.progress-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+.progress-num { font-family: var(--font-head); font-size: 18px; font-weight: 800; color: var(--accent); }
+.progress-bar-bg { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.progress-bar-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.4s ease; width: 0%; }
+.ready-msg { background: rgba(0,229,160,0.08); border: 1px solid rgba(0,229,160,0.25); border-radius: 5px; padding: 12px; text-align: center; font-family: var(--font-head); font-size: 14px; font-weight: 700; color: var(--accent); margin-top: 10px; display: none; }
+.ready-msg.show { display: block; }
+.reset-row { text-align: center; margin-top: 8px; }
+
+/* ── SECTIONS ── */
+.section { margin-bottom: 20px; animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+.section-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.section-title { font-family: var(--font-head); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); }
+.section-line { flex: 1; height: 1px; background: var(--border); }
+.section-count { font-size: 9px; color: var(--muted); }
+
+/* ── CHECKLIST ITEMS ── */
+.checklist-item {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 12px 14px; margin-bottom: 7px; display: flex; gap: 10px; align-items: flex-start;
+  cursor: pointer; transition: border-color 0.2s, background 0.2s; user-select: none;
+}
+.checklist-item:active { transform: scale(0.99); }
+.checklist-item.checked { background: rgba(0,229,160,0.04); border-color: rgba(0,229,160,0.2); }
+.checklist-item.checked .item-text { opacity: 0.45; text-decoration: line-through; }
+.check-box {
+  width: 17px; height: 17px; border: 1.5px solid var(--border); border-radius: 3px;
+  flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s; font-size: 10px;
+}
+.checklist-item.checked .check-box { background: var(--accent); border-color: var(--accent); color: #000; }
+.item-content { flex: 1; min-width: 0; }
+.item-text { font-size: 12px; line-height: 1.5; color: var(--text); transition: opacity 0.2s; }
+.item-sub { font-size: 10px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+.item-tag { display: inline-block; font-size: 8px; letter-spacing: 1px; text-transform: uppercase; padding: 2px 5px; border-radius: 2px; margin-bottom: 3px; }
+.tag-danger { background: rgba(255,68,68,0.15); color: #ff9090; }
+.tag-warn { background: rgba(255,209,102,0.12); color: var(--warn); }
+.tag-info { background: rgba(0,229,160,0.1); color: var(--accent); }
+.tag-local { background: rgba(255,107,53,0.12); color: var(--accent2); }
+.item-link { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; color: var(--accent); text-decoration: none; margin-top: 5px; opacity: 0.8; }
+.item-link:hover { opacity: 1; }
+
+/* ── ORDINANCES DB PAGE ── */
+.page-title { font-family: var(--font-head); font-size: 20px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+.page-sub { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 20px; }
+
+.ordinance-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 14px 16px; margin-bottom: 10px; animation: fadeIn 0.3s ease;
+}
+.ord-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.ord-muni { font-family: var(--font-head); font-size: 14px; font-weight: 700; color: var(--text); }
+.ord-prov { font-size: 10px; color: var(--muted); margin-top: 1px; }
+.ord-status { flex-shrink: 0; }
+.status-badge { font-size: 9px; letter-spacing: 1px; text-transform: uppercase; padding: 3px 7px; border-radius: 2px; font-family: var(--font-mono); }
+.status-verified { background: rgba(0,229,160,0.12); color: var(--accent); border: 1px solid rgba(0,229,160,0.25); }
+.status-pending { background: rgba(255,209,102,0.12); color: var(--warn); border: 1px solid rgba(255,209,102,0.25); }
+.status-ai { background: rgba(255,107,53,0.1); color: var(--accent2); border: 1px solid rgba(255,107,53,0.2); }
+
+.ord-restriction {
+  margin-top: 10px; padding: 8px 10px; border-radius: 4px; font-size: 11px; line-height: 1.5;
+}
+.restriction-ban { background: rgba(255,68,68,0.08); color: #ff9090; border-left: 2px solid var(--danger); }
+.restriction-partial { background: rgba(255,209,102,0.07); color: var(--warn); border-left: 2px solid var(--warn); }
+.restriction-allowed { background: rgba(0,229,160,0.06); color: var(--accent); border-left: 2px solid var(--accent); }
+.restriction-unknown { background: var(--surface2); color: var(--muted); border-left: 2px solid var(--border); }
+
+.ord-meta { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+.ord-meta-item { font-size: 9px; color: var(--muted); }
+
+.vote-row { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+.vote-btn {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 4px;
+  color: var(--muted); font-family: var(--font-mono); font-size: 11px; padding: 5px 10px;
+  cursor: pointer; transition: all 0.2s;
+}
+.vote-btn:hover { border-color: var(--accent); color: var(--accent); }
+.vote-btn.voted-up { background: rgba(0,229,160,0.1); border-color: var(--accent); color: var(--accent); }
+.vote-btn.voted-down { background: rgba(255,68,68,0.1); border-color: var(--danger); color: var(--danger); }
+.vote-hint { font-size: 9px; color: var(--muted); }
+
+.ord-source { font-size: 9px; color: var(--muted); margin-top: 6px; }
+.ord-source a { color: var(--accent); opacity: 0.7; text-decoration: none; }
+.ord-source a:hover { opacity: 1; }
+
+/* empty state */
+.empty-state { text-align: center; padding: 40px 20px; color: var(--muted); }
+.empty-icon { font-size: 36px; margin-bottom: 12px; }
+.empty-text { font-size: 12px; line-height: 1.6; }
+
+/* AI loading */
+.ai-loading-card {
+  background: var(--surface); border: 1px solid rgba(255,107,53,0.3); border-radius: 8px;
+  padding: 16px; margin-bottom: 10px; display: none;
+}
+.ai-loading-card.show { display: block; animation: fadeIn 0.3s ease; }
+.ai-loading-top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.ai-label { font-family: var(--font-head); font-size: 12px; color: var(--accent2); font-weight: 700; }
+.ai-progress-text { font-size: 11px; color: var(--muted); }
+.ai-bar-bg { height: 2px; background: var(--border); border-radius: 1px; overflow: hidden; }
+.ai-bar-fill { height: 100%; background: var(--accent2); border-radius: 1px; animation: aiProgress 3s ease forwards; width: 0%; }
+@keyframes aiProgress { 0%{width:0%} 40%{width:45%} 80%{width:75%} 100%{width:90%} }
+
+/* add ordinance form */
+.add-form { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; display: none; }
+.add-form.show { display: block; animation: fadeIn 0.3s ease; }
+.form-title { font-family: var(--font-head); font-size: 13px; font-weight: 700; margin-bottom: 12px; color: var(--text); }
+.form-field { margin-bottom: 10px; }
+.form-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; display: block; }
+select {
+  width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text); font-family: var(--font-mono); font-size: 12px; padding: 8px 10px; outline: none;
+}
+textarea {
+  width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text); font-family: var(--font-mono); font-size: 12px; padding: 8px 10px;
+  outline: none; resize: vertical; min-height: 70px; line-height: 1.5;
+}
+.form-row { display: flex; gap: 8px; }
+
+/* ── ABOUT ── */
+.about-section { margin-bottom: 24px; }
+.about-title { font-family: var(--font-head); font-size: 13px; font-weight: 700; color: var(--accent); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+.about-text { font-size: 11px; color: var(--muted); line-height: 1.7; }
+.about-text a { color: var(--accent); opacity: 0.8; }
+.divider { height: 1px; background: var(--border); margin: 20px 0; }
+.link-list { list-style: none; }
+.link-list li { margin-bottom: 8px; }
+.link-list a { color: var(--accent); font-size: 12px; text-decoration: none; display: flex; align-items: center; gap: 6px; }
+.link-list a:hover { opacity: 0.8; }
+
+/* ── SPINNER ── */
+.spinner { display: inline-block; width: 11px; height: 11px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to{transform:rotate(360deg)} }
+
+/* ── DYNAMIC SECTIONS ── */
+#dynamic-sections { display: none; }
+#dynamic-sections.show { display: block; }
+
+/* scrollable pages */
+.page { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════ PAGE: CHECKLIST ═══════════════════════ -->
+<div class="page active" id="page-check">
+<div class="container">
+  <header>
+    <div class="logo">Drone<span>Check</span> <span style="color:var(--muted);font-size:16px">ES</span></div>
+    <div class="subtitle">Checklist de vuelo legal · España</div>
+    <div class="badge-row">
+      <span class="badge badge-green">▸ Recreativo</span>
+      <span class="badge badge-green">▸ &lt;250g</span>
+      <span class="badge badge-orange">▸ Cat. A1</span>
+    </div>
+  </header>
+
+  <div class="search-card">
+    <div class="search-label">// Ubicación de vuelo</div>
+    <div class="search-row">
+      <input type="text" id="location-input" placeholder="Ciudad, paraje, municipio..." />
+      <button class="btn" id="search-btn" onclick="searchLocation()">IR</button>
+    </div>
+    <div class="geo-row">
+      <button class="btn-sm" onclick="useGPS()">⊕ GPS</button>
+      <span class="geo-hint">o escribe nombre / coordenadas</span>
+    </div>
+    <div class="status-bar" id="status-bar">
+      <span class="dot"></span>
+      <span id="status-text">Introduce una ubicación para comenzar</span>
+    </div>
+  </div>
+
+  <div class="location-result" id="location-result">
+    <div class="loc-name" id="loc-name">—</div>
+    <div class="loc-coords" id="loc-coords">—</div>
+  </div>
+
+  <div class="alert-banner" id="alert-banner">
+    <div class="alert-title" id="alert-title"></div>
+    <div id="alert-body"></div>
+  </div>
+
+  <div class="progress-card" id="progress-card">
+    <div class="progress-top">
+      <span class="progress-label">Completado</span>
+      <span class="progress-num" id="progress-num">0 / 0</span>
+    </div>
+    <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-bar"></div></div>
+    <div class="ready-msg" id="ready-msg">✓ Listo para volar</div>
+    <div class="reset-row"><button class="btn-sm" onclick="resetChecklist()">↺ Reiniciar</button></div>
+  </div>
+
+  <div id="dynamic-sections"></div>
+  <div id="static-sections" style="display:none"></div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════ PAGE: ORDENANZAS ═══════════════════════ -->
+<div class="page" id="page-ord">
+<div class="container">
+  <div style="padding-top:8px">
+    <div class="page-title">Ordenanzas</div>
+    <div class="page-sub">Base de datos municipal colaborativa</div>
+  </div>
+
+  <div class="search-card" style="margin-bottom:12px">
+    <div class="search-label">// Buscar municipio</div>
+    <div class="search-row">
+      <input type="text" id="ord-input" placeholder="Nombre del municipio..." />
+      <button class="btn" id="ord-btn" onclick="searchOrdinance()">Buscar</button>
+    </div>
+    <div class="status-bar" id="ord-status-bar">
+      <span class="dot"></span>
+      <span id="ord-status-text">Busca un municipio para ver su normativa</span>
+    </div>
+  </div>
+
+  <!-- AI loading indicator -->
+  <div class="ai-loading-card" id="ai-loading">
+    <div class="ai-loading-top">
+      <span class="spinner"></span>
+      <span class="ai-label">Consultando con IA</span>
+    </div>
+    <div class="ai-progress-text" id="ai-progress-text">Buscando normativa de drones para este municipio...</div>
+    <div class="ai-bar-bg" style="margin-top:8px"><div class="ai-bar-fill" id="ai-bar"></div></div>
+  </div>
+
+  <!-- Results -->
+  <div id="ord-results"></div>
+
+  <!-- Add manually -->
+  <button class="btn-sm" onclick="toggleAddForm()" style="margin-bottom:10px">+ Añadir ordenanza manualmente</button>
+  <div class="add-form" id="add-form">
+    <div class="form-title">Añadir ordenanza municipal</div>
+    <div class="form-field">
+      <label class="form-label">Municipio</label>
+      <input type="text" id="form-muni" placeholder="Nombre del municipio">
+    </div>
+    <div class="form-row">
+      <div class="form-field" style="flex:1">
+        <label class="form-label">Provincia</label>
+        <input type="text" id="form-prov" placeholder="Provincia">
+      </div>
+      <div class="form-field" style="flex:1">
+        <label class="form-label">Restricción</label>
+        <select id="form-restriction">
+          <option value="ban">Prohibido volar</option>
+          <option value="partial">Restricciones parciales</option>
+          <option value="allowed">Permitido (sin restricciones extra)</option>
+          <option value="unknown">Desconocido / sin ordenanza</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-field">
+      <label class="form-label">Detalles / condiciones</label>
+      <textarea id="form-details" placeholder="Describe las restricciones, excepciones, horarios, zonas..."></textarea>
+    </div>
+    <div class="form-field">
+      <label class="form-label">Fuente / enlace (opcional)</label>
+      <input type="text" id="form-source" placeholder="URL de la ordenanza o fuente">
+    </div>
+    <div class="form-row" style="gap:8px;margin-top:4px">
+      <button class="btn" onclick="submitManualOrdinance()" style="flex:1">Guardar</button>
+      <button class="btn-sm" onclick="toggleAddForm()">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- All DB -->
+  <div style="margin-top:16px">
+    <div class="section-header">
+      <div class="section-title">Base de datos completa</div>
+      <div class="section-line"></div>
+      <div class="section-count" id="db-count">0 municipios</div>
+    </div>
+    <div id="all-ordinances"></div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════ PAGE: ACERCA ════════════════════════════ -->
+<div class="page" id="page-about">
+<div class="container">
+  <div style="padding-top:8px;margin-bottom:20px">
+    <div class="page-title">Acerca de</div>
+    <div class="page-sub">DroneCheck ES v1.0</div>
+  </div>
+
+  <div class="about-section">
+    <div class="about-title">¿Qué es esto?</div>
+    <div class="about-text">
+      DroneCheck ES es una herramienta para pilotos de dron recreativos en España.
+      Combina datos de espacios protegidos (OSM / Red Natura 2000) con una base de datos
+      colaborativa de ordenanzas municipales, generada automáticamente con IA y validada por la comunidad.
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="about-section">
+    <div class="about-title">Perfil configurado</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <span style="color:var(--muted)">Tipo de vuelo</span>
+        <span style="color:var(--accent)">Recreativo</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <span style="color:var(--muted)">Peso del dron</span>
+        <span style="color:var(--accent)">&lt; 250g</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;padding:8px 0">
+        <span style="color:var(--muted)">Categoría EASA</span>
+        <span style="color:var(--accent)">Abierta A1</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="about-section">
+    <div class="about-title">Fuentes oficiales</div>
+    <ul class="link-list">
+      <li><a href="https://drones.enaire.es" target="_blank">→ ENAIRE Drones (mapa oficial)</a></li>
+      <li><a href="https://sede.aesa.gob.es" target="_blank">→ AESA — Registro de operadores</a></li>
+      <li><a href="https://www.miteco.gob.es/es/biodiversidad/temas/espacios-protegidos/red-natura-2000/" target="_blank">→ Red Natura 2000 (MITECO)</a></li>
+      <li><a href="https://www.miteco.gob.es/es/red-parques-nacionales/" target="_blank">→ Red de Parques Nacionales</a></li>
+    </ul>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="about-section">
+    <div class="about-title">Datos técnicos</div>
+    <div class="about-text">
+      Geocoding: Photon (Komoot/OSM) · Espacios protegidos: Overpass API (OSM) ·
+      Ordenanzas: base local + generación automática vía Claude AI con búsqueda web ·
+      Los datos de ordenanzas son orientativos y deben verificarse con el ayuntamiento.
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div style="text-align:center;font-size:10px;color:var(--muted);padding:8px 0">
+    Esta herramienta es orientativa.<br>Verifica siempre en ENAIRE y fuentes oficiales antes de volar.
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════ TAB BAR ════════════════════════════════ -->
+<div class="tab-bar">
+  <button class="tab-btn active" id="tab-check" onclick="switchTab('check')">
+    <span class="tab-icon">✈</span>Checklist
+  </button>
+  <button class="tab-btn" id="tab-ord" onclick="switchTab('ord')">
+    <span class="tab-icon">📋</span>Ordenanzas
+  </button>
+  <button class="tab-btn" id="tab-about" onclick="switchTab('about')">
+    <span class="tab-icon">ℹ</span>Acerca
+  </button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// CONSTANTS & STATE
+// ═══════════════════════════════════════════════════════════════════════════
+
+const DB_KEY = 'dronecheck_ordinances_v1';
+const VOTES_KEY = 'dronecheck_votes_v1';
+
+let checkedItems = new Set();
+let totalItems = 0;
+let currentLat = null;
+let currentLon = null;
+let currentMuni = '';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LOCAL DB
+// ═══════════════════════════════════════════════════════════════════════════
+
+function loadDB() {
+  try { return JSON.parse(localStorage.getItem(DB_KEY) || '[]'); } catch(e) { return []; }
+}
+function saveDB(db) {
+  localStorage.setItem(DB_KEY, JSON.stringify(db));
+}
+function loadVotes() {
+  try { return JSON.parse(localStorage.getItem(VOTES_KEY) || '{}'); } catch(e) { return {}; }
+}
+function saveVotes(v) {
+  localStorage.setItem(VOTES_KEY, JSON.stringify(v));
+}
+
+function findOrdinance(municipio) {
+  const db = loadDB();
+  const q = municipio.toLowerCase().trim();
+  return db.find(o => o.municipio.toLowerCase() === q) || null;
+}
+
+function saveOrdinance(ord) {
+  const db = loadDB();
+  const idx = db.findIndex(o => o.municipio.toLowerCase() === ord.municipio.toLowerCase());
+  if (idx >= 0) db[idx] = ord;
+  else db.unshift(ord);
+  saveDB(db);
+  renderAllOrdinances();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function switchTab(tab) {
+  ['check','ord','about'].forEach(t => {
+    document.getElementById('page-' + t).classList.toggle('active', t === tab);
+    document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+  });
+  if (tab === 'ord') renderAllOrdinances();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function setStatus(text, type='idle', barId='status-bar', textId='status-text') {
+  const bar = document.getElementById(barId);
+  const dot = bar.querySelector('.dot');
+  document.getElementById(textId).textContent = text;
+  dot.className = 'dot';
+  if (type==='loading') dot.classList.add('pulse');
+  else if (type==='ok') dot.classList.add('green');
+  else if (type==='warn') dot.classList.add('orange');
+  else if (type==='error') dot.classList.add('red');
+}
+
+function showAlert(type, title, body) {
+  const el = document.getElementById('alert-banner');
+  el.className = 'alert-banner show ' + type;
+  document.getElementById('alert-title').textContent = title;
+  document.getElementById('alert-body').textContent = body;
+}
+function hideAlert() { document.getElementById('alert-banner').className = 'alert-banner'; }
+
+function toggleItem(id) {
+  checkedItems.has(id) ? checkedItems.delete(id) : checkedItems.add(id);
+  const el = document.getElementById('item-' + id);
+  if (el) {
+    el.classList.toggle('checked', checkedItems.has(id));
+    const box = el.querySelector('.check-box');
+    if (box) box.textContent = checkedItems.has(id) ? '✓' : '';
+  }
+  updateProgress();
+}
+
+function updateProgress() {
+  const done = checkedItems.size;
+  document.getElementById('progress-num').textContent = done + ' / ' + totalItems;
+  const pct = totalItems > 0 ? (done/totalItems)*100 : 0;
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('ready-msg').classList.toggle('show', done === totalItems && totalItems > 0);
+}
+
+function resetChecklist() {
+  checkedItems.clear();
+  document.querySelectorAll('.checklist-item').forEach(el => {
+    el.classList.remove('checked');
+    const b = el.querySelector('.check-box'); if (b) b.textContent = '';
+  });
+  updateProgress();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CHECKLIST DATA
+// ═══════════════════════════════════════════════════════════════════════════
+
+const STATIC_SECTIONS = [
+  {
+    id:'s-enaire', title:'Espacio aéreo (ENAIRE)', items:[
+      { id:'enaire-map', tag:'danger', tagLabel:'Obligatorio', text:'Consultar mapa ENAIRE Drones', sub:'Zona verde = OK. Zona amarilla = lee condiciones. Zona roja = no vueles.', link:{url:'https://drones.enaire.es',label:'→ Abrir ENAIRE Drones'} },
+      { id:'notam', tag:'warn', tagLabel:'Importante', text:'Revisar NOTAMs activos', sub:'Restricciones temporales: eventos, emergencias, ejercicios militares.', link:{url:'https://drones.enaire.es',label:'→ Ver NOTAMs'} },
+      { id:'altura', tag:'danger', tagLabel:'Obligatorio', text:'Respetar altura máxima 120m', sub:'Límite categoría abierta A1. Sin excepciones salvo autorización AESA.' }
+    ]
+  },
+  {
+    id:'s-doc', title:'Registro y documentación', items:[
+      { id:'operador', tag:'danger', tagLabel:'Obligatorio', text:'Llevar número de operador UAS', sub:'Registro en AESA obligatorio con cámara aunque sea <250g. Debe ir marcado en el dron.', link:{url:'https://sede.aesa.gob.es',label:'→ Registro AESA'} },
+      { id:'seguro', tag:'info', tagLabel:'Recomendado', text:'Seguro de responsabilidad civil', sub:'No obligatorio en A1 <250g, pero muy recomendable. Desde ~30€/año.' }
+    ]
+  },
+  {
+    id:'s-vuelo', title:'Reglas de vuelo A1', items:[
+      { id:'vlos', tag:'danger', tagLabel:'Obligatorio', text:'Mantener el dron siempre a la vista (VLOS)', sub:'Sin ayuda óptica. Si no lo ves claramente, estás demasiado lejos.' },
+      { id:'aglomer', tag:'warn', tagLabel:'Atención', text:'Evitar aglomeraciones de personas', sub:'Con <250g en A1 puedes volar sobre personas, pero evita concentraciones.' },
+      { id:'meteo', tag:'info', tagLabel:'Buena práctica', text:'Comprobar condiciones meteorológicas', sub:'Sin lluvia, niebla ni viento >10 m/s. Usa Windy o la app del dron.', link:{url:'https://www.windy.com',label:'→ Ver viento (Windy)'} },
+      { id:'noche', tag:'danger', tagLabel:'Prohibido', text:'No volar de noche sin autorización AESA', sub:'Requiere autorización especial y luces de posición en el dron.' }
+    ]
+  },
+  {
+    id:'s-privacidad', title:'Privacidad y entorno', items:[
+      { id:'privacidad', tag:'warn', tagLabel:'Legal', text:'No grabar personas sin consentimiento', sub:'Aplica LOPDGDD. Especial cuidado en zonas urbanas y residenciales.' },
+      { id:'fauna', tag:'info', tagLabel:'Buena práctica', text:'Respetar fauna silvestre', sub:'Evita volar sobre nidos, fauna en migración o animales domésticos.' }
+    ]
+  }
+];
+
+const DYNAMIC_TEMPLATES = {
+  national_park: { id:'nat-park', tag:'danger', tagLabel:'🔴 Parque Nacional', text:'Posible Parque Nacional o Natural en la zona', sub:'Vuelo recreativo generalmente PROHIBIDO. Contacta con la dirección del parque antes de volar.', link:{url:'https://www.miteco.gob.es/es/red-parques-nacionales/',label:'→ Red Parques Nacionales'} },
+  red_natura: { id:'red-natura', tag:'danger', tagLabel:'🔴 Red Natura / ZEPA', text:'Zona Red Natura 2000, ZEPA o LIC detectada', sub:'Vuelo recreativo puede estar prohibido. Consulta con la Consejería de Medio Ambiente autonómica.', link:{url:'https://www.miteco.gob.es/es/biodiversidad/temas/espacios-protegidos/red-natura-2000/',label:'→ Información MITECO'} },
+  ramsar: { id:'ramsar', tag:'danger', tagLabel:'🔴 Humedal Ramsar', text:'Humedal protegido (Convenio Ramsar) en la zona', sub:'Zona de especial protección para aves acuáticas. Consulta normativa autonómica antes de volar.' },
+  military: { id:'military', tag:'danger', tagLabel:'🔴 Zona Militar', text:'Posible instalación o zona militar cercana', sub:'Vuelo con drones absolutamente prohibido. ENAIRE también lo marcará como zona restringida.' },
+  urban: { id:'urban', tag:'warn', tagLabel:'⚠ Zona Urbana', text:'Zona urbana detectada — posibles ordenanzas locales', sub:'Muchos municipios tienen restricciones propias. Consulta la pestaña Ordenanzas o llama al ayuntamiento.', link:null },
+  coast: { id:'coast', tag:'warn', tagLabel:'⚠ Costa / Playa', text:'Zona costera — posibles restricciones en temporada', sub:'En verano la mayoría de municipios costeros prohíben el vuelo en playas. Consulta ordenanza local.', link:null },
+  aerodrome: { id:'aerodrome', tag:'danger', tagLabel:'🔴 Aeródromo cercano', text:'Aeródromo o helipuerto detectado en la zona', sub:'Zona CTR. Requiere coordinación obligatoria con ENAIRE (plataforma PLANEA, 20 días antelación).', link:{url:'https://drones.enaire.es',label:'→ Coordinar en ENAIRE'} }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RENDER CHECKLIST
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderSection(secData, container) {
+  const sec = document.createElement('div');
+  sec.className = 'section'; sec.id = secData.id;
+  sec.innerHTML = `<div class="section-header"><div class="section-title">${secData.title}</div><div class="section-line"></div><div class="section-count">${secData.items.length}</div></div>`;
+  secData.items.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'checklist-item'; div.id = 'item-' + item.id;
+    div.onclick = () => toggleItem(item.id);
+    const tagCls = {danger:'tag-danger',warn:'tag-warn',info:'tag-info',local:'tag-local'}[item.tag]||'tag-info';
+    const linkHtml = item.link ? `<a class="item-link" href="${item.link.url}" target="_blank" onclick="event.stopPropagation()">${item.link.label} ↗</a>` : '';
+    div.innerHTML = `<div class="check-box"></div><div class="item-content"><div class="item-tag ${tagCls}">${item.tagLabel}</div><div class="item-text">${item.text}</div><div class="item-sub">${item.sub}</div>${linkHtml}</div>`;
+    sec.appendChild(div);
+    totalItems++;
+  });
+  container.appendChild(sec);
+}
+
+function buildChecklist(dynamicItems, ordinanceItem) {
+  totalItems = 0; checkedItems.clear();
+  const dynC = document.getElementById('dynamic-sections');
+  dynC.innerHTML = '';
+  const allDynamic = [...dynamicItems];
+  if (ordinanceItem) allDynamic.push(ordinanceItem);
+  if (allDynamic.length > 0) {
+    dynC.classList.add('show');
+    renderSection({ id:'s-location', title:'⚑ Alertas para esta ubicación', items: allDynamic }, dynC);
+  } else {
+    dynC.classList.remove('show');
+  }
+  const statC = document.getElementById('static-sections');
+  statC.innerHTML = ''; statC.style.display = 'block';
+  STATIC_SECTIONS.forEach(s => renderSection(s, statC));
+  document.getElementById('progress-card').classList.add('show');
+  updateProgress();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GEOCODING
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function geocode(query) {
+  const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=1&lang=es&bbox=-9.5,35.9,4.5,43.8`;
+  const res = await fetch(url);
+  const data = await res.json();
+  const feat = data.features?.[0];
+  if (!feat) return null;
+  const [lon, lat] = feat.geometry.coordinates;
+  const p = feat.properties || {};
+  return {
+    lat: lat.toString(), lon: lon.toString(),
+    display_name: [p.name, p.city||p.town||p.village, p.state].filter(Boolean).join(', '),
+    address: { city:p.city, town:p.town, village:p.village, municipality:p.municipality }
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// OVERPASS — improved queries
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function queryOverpass(query) {
+  try {
+    const r = await fetch('https://overpass-api.de/api/interpreter', {
+      method:'POST', body:'data='+encodeURIComponent(query)
+    });
+    return (await r.json()).elements || [];
+  } catch(e) { return []; }
+}
+
+async function checkProtectedAreas(lat, lon) {
+  const r = 3000;
+  const q = `[out:json][timeout:12];(
+    way["boundary"="protected_area"](around:${r},${lat},${lon});
+    relation["boundary"="protected_area"](around:${r},${lat},${lon});
+    way["boundary"="national_park"](around:${r},${lat},${lon});
+    relation["boundary"="national_park"](around:${r},${lat},${lon});
+    way["leisure"="nature_reserve"](around:${r},${lat},${lon});
+    relation["leisure"="nature_reserve"](around:${r},${lat},${lon});
+    way["landuse"="military"](around:${r},${lat},${lon});
+    relation["landuse"="military"](around:${r},${lat},${lon});
+    way["aeroway"~"aerodrome|helipad|airstrip"](around:8000,${lat},${lon});
+    node["aeroway"~"aerodrome|helipad"](around:8000,${lat},${lon});
+    way["natural"~"wetland"](around:${r},${lat},${lon});
+    relation["natural"~"wetland"](around:${r},${lat},${lon});
+  );out tags;`;
+  return queryOverpass(q);
+}
+
+async function checkUrbanCoast(lat, lon) {
+  const q = `[out:json][timeout:8];(
+    way["landuse"~"residential|commercial|retail"](around:400,${lat},${lon});
+    way["natural"="coastline"](around:4000,${lat},${lon});
+    way["natural"="beach"](around:4000,${lat},${lon});
+    way["leisure"="beach_resort"](around:4000,${lat},${lon});
+  );out tags 8;`;
+  return queryOverpass(q);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MAIN SEARCH
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function searchLocation() {
+  const input = document.getElementById('location-input').value.trim();
+  if (!input) return;
+  const btn = document.getElementById('search-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  hideAlert();
+  setStatus('Buscando ubicación...', 'loading');
+
+  try {
+    let lat, lon, displayName, address = {};
+    const coordMatch = input.match(/^(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)$/);
+    if (coordMatch) {
+      lat = parseFloat(coordMatch[1]); lon = parseFloat(coordMatch[2]);
+      displayName = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+    } else {
+      const result = await geocode(input);
+      if (!result) {
+        setStatus('Ubicación no encontrada. Prueba otro nombre.', 'error');
+        showAlert('danger', '⚠ No encontrado', 'Intenta con el municipio exacto o coordenadas (ej: 40.4168, -3.7038).');
+        btn.disabled = false; btn.textContent = 'IR'; return;
+      }
+      lat = parseFloat(result.lat); lon = parseFloat(result.lon);
+      displayName = result.display_name;
+      address = result.address || {};
+    }
+
+    currentLat = lat; currentLon = lon;
+    currentMuni = address.city || address.town || address.village || address.municipality || input;
+
+    document.getElementById('loc-name').textContent = displayName;
+    document.getElementById('loc-coords').textContent = `${lat.toFixed(5)}°N  ${lon.toFixed(5)}°E`;
+    document.getElementById('location-result').classList.add('show');
+
+    setStatus('Analizando espacios protegidos...', 'loading');
+    const [protectedAreas, urbanCoast] = await Promise.all([
+      checkProtectedAreas(lat, lon),
+      checkUrbanCoast(lat, lon)
+    ]);
+
+    // Classify
+    let flags = { national_park:false, red_natura:false, ramsar:false, military:false, aerodrome:false };
+    protectedAreas.forEach(el => {
+      const t = el.tags || {};
+      if (t.boundary === 'national_park' || (t.protect_class && parseInt(t.protect_class) <= 2)) flags.national_park = true;
+      if (t.boundary === 'protected_area') {
+        const pc = parseInt(t.protect_class || '99');
+        if (pc <= 4) flags.national_park = true;
+        else flags.red_natura = true;
+      }
+      if (t.leisure === 'nature_reserve') flags.red_natura = true;
+      if (t.landuse === 'military') flags.military = true;
+      if (t.aeroway) flags.aerodrome = true;
+      if (t.natural === 'wetland' && (t.wetland === 'ramsarsite' || t.ramsar)) flags.ramsar = true;
+    });
+
+    let isUrban = false, isCoast = false;
+    urbanCoast.forEach(el => {
+      const t = el.tags || {};
+      if (t.landuse) isUrban = true;
+      if (t.natural === 'coastline' || t.natural === 'beach' || t.leisure === 'beach_resort') isCoast = true;
+    });
+    if (address.city || address.town) isUrban = true;
+
+    const dynamicItems = [];
+    if (flags.national_park) dynamicItems.push({...DYNAMIC_TEMPLATES.national_park});
+    if (flags.red_natura) dynamicItems.push({...DYNAMIC_TEMPLATES.red_natura});
+    if (flags.ramsar) dynamicItems.push({...DYNAMIC_TEMPLATES.ramsar});
+    if (flags.military) dynamicItems.push({...DYNAMIC_TEMPLATES.military});
+    if (flags.aerodrome) dynamicItems.push({...DYNAMIC_TEMPLATES.aerodrome});
+    if (isCoast) dynamicItems.push({...DYNAMIC_TEMPLATES.coast});
+    if (isUrban) dynamicItems.push({...DYNAMIC_TEMPLATES.urban});
+
+    // Check ordinance DB
+    let ordinanceItem = null;
+    if (currentMuni) {
+      const ord = findOrdinance(currentMuni);
+      if (ord) {
+        ordinanceItem = ordinanceToChecklistItem(ord);
+      }
+      // Also silently trigger ordinance fetch in background
+      fetchOrdinanceIfNeeded(currentMuni);
+    }
+
+    buildChecklist(dynamicItems, ordinanceItem);
+
+    const severeCount = dynamicItems.filter(i => i.tag === 'danger').length;
+    if (flags.national_park || flags.military) setStatus('Restricciones severas detectadas ↓', 'error');
+    else if (severeCount > 0) setStatus('Restricciones en la zona — revisa abajo', 'warn');
+    else setStatus('Análisis completado — revisa el checklist', 'ok');
+
+  } catch(err) {
+    setStatus('Error de conexión. Comprueba internet.', 'error');
+    console.error(err);
+  }
+  btn.disabled = false; btn.textContent = 'IR';
+}
+
+function ordinanceToChecklistItem(ord) {
+  const typeMap = {
+    ban: { tag:'danger', tagLabel:'🏛 Ordenanza: PROHIBIDO', prefix:'El municipio de ' + ord.municipio + ' prohíbe el vuelo de drones.' },
+    partial: { tag:'warn', tagLabel:'🏛 Ordenanza: Restricciones', prefix:'Restricciones municipales en ' + ord.municipio + ':' },
+    allowed: { tag:'info', tagLabel:'🏛 Ordenanza: Permitido', prefix:'Sin restricciones municipales extra en ' + ord.municipio + '.' },
+    unknown: { tag:'local', tagLabel:'🏛 Ordenanza: No verificada', prefix:'Sin datos de ordenanza para ' + ord.municipio + '. Consulta con el ayuntamiento.' }
+  };
+  const cfg = typeMap[ord.restriction] || typeMap.unknown;
+  return {
+    id: 'ord-' + ord.municipio.toLowerCase().replace(/\s/g,'-'),
+    tag: cfg.tag, tagLabel: cfg.tagLabel,
+    text: cfg.prefix,
+    sub: ord.details || 'Fuente: ' + (ord.source || 'base de datos colaborativa') + ' · Estado: ' + ord.status,
+    link: ord.sourceUrl ? { url: ord.sourceUrl, label: '→ Ver ordenanza' } : null
+  };
+}
+
+async function useGPS() {
+  if (!navigator.geolocation) { setStatus('GPS no disponible.', 'error'); return; }
+  setStatus('Obteniendo GPS...', 'loading');
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      document.getElementById('location-input').value = `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
+      searchLocation();
+    },
+    () => setStatus('No se pudo obtener el GPS.', 'error')
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ORDINANCE AI FETCH
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function fetchOrdinanceIfNeeded(municipio) {
+  if (!municipio || findOrdinance(municipio)) return; // already in DB
+  // Don't block main flow — fire and forget
+  fetchOrdinanceFromAI(municipio).catch(()=>{});
+}
+
+async function searchOrdinance() {
+  const input = document.getElementById('ord-input').value.trim();
+  if (!input) return;
+  const btn = document.getElementById('ord-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  setStatus('Buscando...', 'loading', 'ord-status-bar', 'ord-status-text');
+
+  const existing = findOrdinance(input);
+  if (existing) {
+    renderOrdinanceResults([existing]);
+    setStatus('Datos encontrados en la base local', 'ok', 'ord-status-bar', 'ord-status-text');
+    btn.disabled = false; btn.textContent = 'Buscar'; return;
+  }
+
+  // Not found — use AI
+  setStatus('No encontrado localmente — consultando con IA...', 'loading', 'ord-status-bar', 'ord-status-text');
+  const result = await fetchOrdinanceFromAI(input);
+  if (result) {
+    renderOrdinanceResults([result]);
+    setStatus('Ordenanza obtenida con IA · Pendiente de validación', 'warn', 'ord-status-bar', 'ord-status-text');
+  } else {
+    document.getElementById('ord-results').innerHTML = `<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-text">No se encontró información sobre este municipio.<br>Puedes añadirla manualmente.</div></div>`;
+    setStatus('Sin datos. Añade la ordenanza manualmente.', 'warn', 'ord-status-bar', 'ord-status-text');
+  }
+  btn.disabled = false; btn.textContent = 'Buscar';
+}
+
+async function fetchOrdinanceFromAI(municipio) {
+  const loadingEl = document.getElementById('ai-loading');
+  const progressText = document.getElementById('ai-progress-text');
+  loadingEl.classList.add('show');
+  // Reset bar animation
+  const bar = document.getElementById('ai-bar');
+  bar.style.animation = 'none'; bar.offsetHeight;
+  bar.style.animation = 'aiProgress 8s ease forwards';
+  progressText.textContent = `Buscando normativa de drones para ${municipio}...`;
+
+  try {
+    const prompt = `Busca si el municipio de "${municipio}" en España tiene ordenanza municipal o normativa local específica para el vuelo de drones. 
+
+Responde SOLO con un objeto JSON con esta estructura exacta, sin texto adicional ni markdown:
+{
+  "municipio": "nombre exacto del municipio",
+  "provincia": "provincia",
+  "restriction": "ban|partial|allowed|unknown",
+  "details": "descripción concisa de las restricciones o permisividad (máximo 200 caracteres)",
+  "sourceUrl": "URL de la fuente si existe, o null",
+  "sourceName": "nombre de la fuente",
+  "confidence": "high|medium|low"
+}
+
+Valores para restriction:
+- "ban": está explícitamente prohibido volar drones en zonas urbanas/playas/etc.
+- "partial": hay restricciones parciales (horarios, zonas, temporadas)
+- "allowed": no hay restricciones municipales extra conocidas
+- "unknown": no encontraste información específica
+
+Sé conservador: si no hay datos claros, usa "unknown".`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await response.json();
+    // Extract text from response (may include tool use blocks)
+    const textBlocks = (data.content || []).filter(b => b.type === 'text');
+    const text = textBlocks.map(b => b.text).join('');
+
+    // Parse JSON from response
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('No JSON in response');
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    const ord = {
+      municipio: parsed.municipio || municipio,
+      provincia: parsed.provincia || '',
+      restriction: ['ban','partial','allowed','unknown'].includes(parsed.restriction) ? parsed.restriction : 'unknown',
+      details: parsed.details || '',
+      sourceUrl: parsed.sourceUrl || null,
+      sourceName: parsed.sourceName || 'Claude AI + web search',
+      confidence: parsed.confidence || 'low',
+      status: 'ai-generated',
+      votes: { up: 0, down: 0 },
+      date: new Date().toISOString().split('T')[0]
+    };
+
+    saveOrdinance(ord);
+    loadingEl.classList.remove('show');
+    return ord;
+  } catch(e) {
+    console.error('AI ordinance fetch error:', e);
+    loadingEl.classList.remove('show');
+    return null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RENDER ORDINANCES
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderOrdinanceCard(ord) {
+  const votes = loadVotes();
+  const myVote = votes[ord.municipio] || null;
+
+  const restrictionCfg = {
+    ban: { cls:'restriction-ban', icon:'🚫', label:'Prohibido volar drones' },
+    partial: { cls:'restriction-partial', icon:'⚠', label:'Restricciones parciales' },
+    allowed: { cls:'restriction-allowed', icon:'✓', label:'Sin restricciones extra conocidas' },
+    unknown: { cls:'restriction-unknown', icon:'?', label:'Sin datos / no verificado' }
+  }[ord.restriction] || { cls:'restriction-unknown', icon:'?', label:'Desconocido' };
+
+  const statusCfg = {
+    'verified': { cls:'status-verified', label:'✓ Verificado' },
+    'ai-generated': { cls:'status-ai', label:'⚡ IA' },
+    'user-submitted': { cls:'status-pending', label:'⏳ Pendiente' }
+  }[ord.status] || { cls:'status-pending', label:'⏳ Pendiente' };
+
+  const card = document.createElement('div');
+  card.className = 'ordinance-card';
+  card.id = 'ord-card-' + ord.municipio.toLowerCase().replace(/\s/g,'-');
+  card.innerHTML = `
+    <div class="ord-header">
+      <div>
+        <div class="ord-muni">${ord.municipio}</div>
+        <div class="ord-prov">${ord.provincia || ''}</div>
+      </div>
+      <div class="ord-status"><span class="status-badge ${statusCfg.cls}">${statusCfg.label}</span></div>
+    </div>
+    <div class="ord-restriction ${restrictionCfg.cls}">
+      ${restrictionCfg.icon} <strong>${restrictionCfg.label}</strong>${ord.details ? '<br><span style="font-weight:400;font-size:10px">' + ord.details + '</span>' : ''}
+    </div>
+    <div class="ord-meta">
+      <span class="ord-meta-item">📅 ${ord.date || '—'}</span>
+      ${ord.confidence ? `<span class="ord-meta-item">Confianza: ${ord.confidence}</span>` : ''}
+      ${ord.votes ? `<span class="ord-meta-item">👍 ${ord.votes.up} · 👎 ${ord.votes.down}</span>` : ''}
+    </div>
+    <div class="vote-row">
+      <button class="vote-btn ${myVote==='up'?'voted-up':''}" onclick="vote('${ord.municipio}','up')">👍 Correcto</button>
+      <button class="vote-btn ${myVote==='down'?'voted-down':''}" onclick="vote('${ord.municipio}','down')">👎 Incorrecto</button>
+      <span class="vote-hint">¿Es preciso?</span>
+    </div>
+    ${ord.sourceUrl ? `<div class="ord-source">Fuente: <a href="${ord.sourceUrl}" target="_blank">${ord.sourceName || ord.sourceUrl}</a></div>` : (ord.sourceName ? `<div class="ord-source">Fuente: ${ord.sourceName}</div>` : '')}
+  `;
+  return card;
+}
+
+function renderOrdinanceResults(ords) {
+  const container = document.getElementById('ord-results');
+  container.innerHTML = '';
+  ords.forEach(o => container.appendChild(renderOrdinanceCard(o)));
+}
+
+function renderAllOrdinances() {
+  const db = loadDB();
+  const container = document.getElementById('all-ordinances');
+  container.innerHTML = '';
+  document.getElementById('db-count').textContent = db.length + ' municipios';
+  if (db.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">La base de datos está vacía.<br>Busca un municipio para añadirlo automáticamente.</div></div>`;
+    return;
+  }
+  db.forEach(o => container.appendChild(renderOrdinanceCard(o)));
+}
+
+function vote(municipio, type) {
+  const votes = loadVotes();
+  const prev = votes[municipio];
+  votes[municipio] = prev === type ? null : type; // toggle
+  saveVotes(votes);
+
+  // Update vote counts in DB
+  const db = loadDB();
+  const idx = db.findIndex(o => o.municipio === municipio);
+  if (idx >= 0) {
+    if (!db[idx].votes) db[idx].votes = { up:0, down:0 };
+    if (prev === 'up') db[idx].votes.up = Math.max(0, db[idx].votes.up - 1);
+    if (prev === 'down') db[idx].votes.down = Math.max(0, db[idx].votes.down - 1);
+    if (votes[municipio] === 'up') db[idx].votes.up++;
+    if (votes[municipio] === 'down') db[idx].votes.down++;
+    // Auto-promote if enough up votes
+    if (db[idx].votes.up >= 3 && db[idx].status === 'ai-generated') db[idx].status = 'verified';
+    saveDB(db);
+  }
+  // Re-render
+  renderAllOrdinances();
+  const results = document.getElementById('ord-results');
+  if (results.children.length > 0) {
+    const existing = findOrdinance(municipio);
+    if (existing) renderOrdinanceResults([existing]);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MANUAL ADD
+// ═══════════════════════════════════════════════════════════════════════════
+
+function toggleAddForm() {
+  document.getElementById('add-form').classList.toggle('show');
+}
+
+function submitManualOrdinance() {
+  const muni = document.getElementById('form-muni').value.trim();
+  const prov = document.getElementById('form-prov').value.trim();
+  const rest = document.getElementById('form-restriction').value;
+  const details = document.getElementById('form-details').value.trim();
+  const source = document.getElementById('form-source').value.trim();
+  if (!muni) { alert('Escribe el nombre del municipio'); return; }
+
+  const ord = {
+    municipio: muni, provincia: prov, restriction: rest, details,
+    sourceUrl: source.startsWith('http') ? source : null,
+    sourceName: source || 'Aportación de usuario',
+    status: 'user-submitted', confidence: 'medium',
+    votes: { up:0, down:0 },
+    date: new Date().toISOString().split('T')[0]
+  };
+  saveOrdinance(ord);
+  toggleAddForm();
+  // Clear form
+  ['form-muni','form-prov','form-details','form-source'].forEach(id => document.getElementById(id).value = '');
+  renderAllOrdinances();
+  renderOrdinanceResults([ord]);
+  setStatus('Ordenanza añadida · Pendiente de validación', 'ok', 'ord-status-bar', 'ord-status-text');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════════
+
+document.getElementById('location-input').addEventListener('keydown', e => { if(e.key==='Enter') searchLocation(); });
+document.getElementById('ord-input').addEventListener('keydown', e => { if(e.key==='Enter') searchOrdinance(); });
+renderAllOrdinances();
+</script>
+</body>
+</html>

@@ -28,8 +28,11 @@ jobs:
       - name: Instalar dependencias
         run: npm install
 
+      - name: Dar permisos a binarios
+        run: chmod +x node_modules/.bin/*
+
       - name: Sincronizar archivos web
-        run: ./node_modules/.bin/cap sync android
+        run: node node_modules/@capacitor/cli/bin/capacitor sync android
 
       - name: Dar permisos a gradlew
         run: chmod +x android/gradlew

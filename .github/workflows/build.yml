@@ -28,11 +28,26 @@ jobs:
       - name: Instalar dependencias
         run: npm install
 
-      - name: Dar permisos a binarios
-        run: chmod +x node_modules/.bin/*
-
       - name: Sincronizar archivos web
         run: node node_modules/@capacitor/cli/bin/capacitor sync android
+
+      - name: Copiar iconos de app
+        run: |
+          for size in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            if [ -f "app-icons/mipmap-${size}_ic_launcher.png" ]; then
+              cp "app-icons/mipmap-${size}_ic_launcher.png" "android/app/src/main/res/mipmap-${size}/ic_launcher.png"
+              cp "app-icons/mipmap-${size}_ic_launcher.png" "android/app/src/main/res/mipmap-${size}/ic_launcher_round.png"
+            fi
+          done
+
+      - name: Copiar splash screens
+        run: |
+          for size in mdpi hdpi xhdpi xxhdpi; do
+            mkdir -p "android/app/src/main/res/drawable-${size}"
+            if [ -f "app-splash/drawable-${size}_splash.png" ]; then
+              cp "app-splash/drawable-${size}_splash.png" "android/app/src/main/res/drawable-${size}/splash.png"
+            fi
+          done
 
       - name: Dar permisos a gradlew
         run: chmod +x android/gradlew

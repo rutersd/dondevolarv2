@@ -902,13 +902,14 @@ textarea {
 </div>
 
 <script>
-
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════════════════════
 
 const DB_KEY = 'dronecheck_ordinances_v1';
 const VOTES_KEY = 'dronecheck_votes_v1';
+const HIST_KEY = 'dronecheck_history_v1';
+const FAV_KEY = 'dronecheck_favs_v1';
 
 let checkedItems = new Set();
 let totalItems = 0;
@@ -920,18 +921,10 @@ let currentMuni = '';
 // LOCAL DB
 // ═══════════════════════════════════════════════════════════════════════════
 
-function loadDB() {
-  try { return JSON.parse(localStorage.getItem(DB_KEY) || '[]'); } catch(e) { return []; }
-}
-function saveDB(db) {
-  localStorage.setItem(DB_KEY, JSON.stringify(db));
-}
-function loadVotes() {
-  try { return JSON.parse(localStorage.getItem(VOTES_KEY) || '{}'); } catch(e) { return {}; }
-}
-function saveVotes(v) {
-  localStorage.setItem(VOTES_KEY, JSON.stringify(v));
-}
+function loadDB() { try { return JSON.parse(localStorage.getItem(DB_KEY) || '[]'); } catch(e) { return []; } }
+function saveDB(db) { localStorage.setItem(DB_KEY, JSON.stringify(db)); }
+function loadVotes() { try { return JSON.parse(localStorage.getItem(VOTES_KEY) || '{}'); } catch(e) { return {}; } }
+function saveVotes(v) { localStorage.setItem(VOTES_KEY, JSON.stringify(v)); }
 
 function findOrdinance(municipio) {
   const db = loadDB();
@@ -946,8 +939,6 @@ function saveOrdinance(ord) {
   else db.unshift(ord);
   saveDB(db);
   renderAllOrdinances();
-renderQuickAccess();
-initTheme();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -968,24 +959,32 @@ function switchTab(tab) {
 // UI HELPERS
 // ═══════════════════════════════════════════════════════════════════════════
 
-function setStatus(text, type='idle', barId='status-bar', textId='status-text') {
+function setStatus(text, type, barId, textId) {
+  barId = barId || 'status-bar';
+  textId = textId || 'status-text';
+  type = type || 'idle';
   const bar = document.getElementById(barId);
+  if (!bar) return;
   const dot = bar.querySelector('.dot');
   document.getElementById(textId).textContent = text;
   dot.className = 'dot';
-  if (type==='loading') dot.classList.add('pulse');
-  else if (type==='ok') dot.classList.add('green');
-  else if (type==='warn') dot.classList.add('orange');
-  else if (type==='error') dot.classList.add('red');
+  if (type === 'loading') dot.classList.add('pulse');
+  else if (type === 'ok') dot.classList.add('green');
+  else if (type === 'warn') dot.classList.add('orange');
+  else if (type === 'error') dot.classList.add('red');
 }
 
 function showAlert(type, title, body) {
   const el = document.getElementById('alert-banner');
+  if (!el) return;
   el.className = 'alert-banner show ' + type;
   document.getElementById('alert-title').textContent = title;
   document.getElementById('alert-body').textContent = body;
 }
-function hideAlert() { document.getElementById('alert-banner').className = 'alert-banner'; }
+function hideAlert() {
+  const el = document.getElementById('alert-banner');
+  if (el) el.className = 'alert-banner';
+}
 
 function toggleItem(id) {
   checkedItems.has(id) ? checkedItems.delete(id) : checkedItems.add(id);
@@ -993,24 +992,28 @@ function toggleItem(id) {
   if (el) {
     el.classList.toggle('checked', checkedItems.has(id));
     const box = el.querySelector('.check-box, .level-check-box');
-    if (box) box.textContent = checkedItems.has(id) ? '✓' : '';
+    if (box) box.textContent = checkedItems.has(id) ? '\u2713' : '';
   }
   updateProgress();
 }
 
 function updateProgress() {
   const done = checkedItems.size;
-  document.getElementById('progress-num').textContent = done + ' / ' + totalItems;
-  const pct = totalItems > 0 ? (done/totalItems)*100 : 0;
-  document.getElementById('progress-bar').style.width = pct + '%';
-  document.getElementById('ready-msg').classList.toggle('show', done === totalItems && totalItems > 0);
+  const numEl = document.getElementById('progress-num');
+  const barEl = document.getElementById('progress-bar');
+  const readyEl = document.getElementById('ready-msg');
+  if (numEl) numEl.textContent = done + ' / ' + totalItems;
+  const pct = totalItems > 0 ? (done / totalItems) * 100 : 0;
+  if (barEl) barEl.style.width = pct + '%';
+  if (readyEl) readyEl.classList.toggle('show', done === totalItems && totalItems > 0);
 }
 
 function resetChecklist() {
   checkedItems.clear();
-  document.querySelectorAll('.checklist-item, .level-check-row').forEach(el => {
+  document.querySelectorAll('.checklist-item, .level-check-row').forEach(function(el) {
     el.classList.remove('checked');
-    const b = el.querySelector('.check-box, .level-check-box'); if (b) b.textContent = '';
+    const b = el.querySelector('.check-box, .level-check-box');
+    if (b) b.textContent = '';
   });
   updateProgress();
 }
@@ -1021,151 +1024,109 @@ function resetChecklist() {
 
 const STATIC_SECTIONS = [
   {
-    id:'s-enaire', title:'Espacio aéreo (ENAIRE)', items:[
-      { id:'enaire-map', tag:'danger', tagLabel:'Obligatorio', text:'Consultar mapa ENAIRE Drones', sub:'Zona verde = OK. Zona amarilla = lee condiciones. Zona roja = no vueles.', link:{url:'https://drones.enaire.es',label:'→ Abrir ENAIRE Drones'} },
-      { id:'notam', tag:'warn', tagLabel:'Importante', text:'Revisar NOTAMs activos', sub:'Restricciones temporales: eventos, emergencias, ejercicios militares.', link:{url:'https://drones.enaire.es',label:'→ Ver NOTAMs'} },
-      { id:'altura', tag:'danger', tagLabel:'Obligatorio', text:'Respetar altura máxima 120m', sub:'Límite categoría abierta A1. Sin excepciones salvo autorización AESA.' }
-    ]
-  },
-  {
     id:'s-doc', title:'Registro y documentación', items:[
-      { id:'operador', tag:'danger', tagLabel:'Obligatorio', text:'Llevar número de operador UAS', sub:'Registro en AESA obligatorio con cámara aunque sea <250g. Debe ir marcado en el dron.', link:{url:'https://sede.aesa.gob.es',label:'→ Registro AESA'} },
-      { id:'seguro', tag:'info', tagLabel:'Recomendado', text:'Seguro de responsabilidad civil', sub:'No obligatorio en A1 <250g, pero muy recomendable. Desde ~30€/año.' }
+      { id:'operador', tag:'danger', tagLabel:'Obligatorio', text:'Llevar número de operador UAS (AESA)', sub:'Registro en AESA obligatorio con cámara aunque sea <250g. Debe ir marcado en el dron.', link:{url:'https://sede.aesa.gob.es',label:'\u2192 Registro AESA'} },
+      { id:'seguro', tag:'info', tagLabel:'Recomendado', text:'Seguro de responsabilidad civil', sub:'No obligatorio en A1 <250g, pero muy recomendable. Desde ~30\u20ac/a\u00f1o.' }
     ]
   },
   {
     id:'s-vuelo', title:'Reglas de vuelo A1', items:[
-      { id:'vlos', tag:'danger', tagLabel:'Obligatorio', text:'Mantener el dron siempre a la vista (VLOS)', sub:'Sin ayuda óptica. Si no lo ves claramente, estás demasiado lejos.' },
-      { id:'aglomer', tag:'warn', tagLabel:'Atención', text:'Evitar aglomeraciones de personas', sub:'Con <250g en A1 puedes volar sobre personas, pero evita concentraciones.' },
-      { id:'meteo', tag:'info', tagLabel:'Buena práctica', text:'Comprobar condiciones meteorológicas', sub:'Sin lluvia, niebla ni viento >10 m/s. Usa Windy o la app del dron.', link:{url:'https://www.windy.com',label:'→ Ver viento (Windy)'} },
-      { id:'noche', tag:'danger', tagLabel:'Prohibido', text:'No volar de noche sin autorización AESA', sub:'Requiere autorización especial y luces de posición en el dron.' }
+      { id:'vlos', tag:'danger', tagLabel:'Obligatorio', text:'Mantener el dron siempre a la vista (VLOS)', sub:'Sin ayuda \u00f3ptica. Si no lo ves claramente, est\u00e1s demasiado lejos.' },
+      { id:'aglomer', tag:'warn', tagLabel:'Atenci\u00f3n', text:'Evitar aglomeraciones de personas', sub:'Con <250g en A1 puedes volar sobre personas, pero evita concentraciones.' },
+      { id:'meteo', tag:'info', tagLabel:'Buena pr\u00e1ctica', text:'Comprobar condiciones meteorol\u00f3gicas', sub:'Sin lluvia, niebla ni viento >10 m/s.', link:{url:'https://www.windy.com',label:'\u2192 Ver viento (Windy)'} },
+      { id:'noche', tag:'danger', tagLabel:'Prohibido', text:'No volar de noche sin autorizaci\u00f3n AESA', sub:'Requiere autorizaci\u00f3n especial y luces de posici\u00f3n en el dron.' }
     ]
   },
   {
     id:'s-privacidad', title:'Privacidad y entorno', items:[
       { id:'privacidad', tag:'warn', tagLabel:'Legal', text:'No grabar personas sin consentimiento', sub:'Aplica LOPDGDD. Especial cuidado en zonas urbanas y residenciales.' },
-      { id:'fauna', tag:'info', tagLabel:'Buena práctica', text:'Respetar fauna silvestre', sub:'Evita volar sobre nidos, fauna en migración o animales domésticos.' }
+      { id:'fauna', tag:'info', tagLabel:'Buena pr\u00e1ctica', text:'Respetar fauna silvestre', sub:'Evita volar sobre nidos, fauna en migraci\u00f3n o animales dom\u00e9sticos.' }
     ]
   }
 ];
 
-const DYNAMIC_TEMPLATES = {
-  national_park: { id:'nat-park', tag:'danger', tagLabel:'🔴 Parque Nacional', text:'Posible Parque Nacional o Natural en la zona', sub:'Vuelo recreativo generalmente PROHIBIDO. Contacta con la dirección del parque antes de volar.', link:{url:'https://www.miteco.gob.es/es/red-parques-nacionales/',label:'→ Red Parques Nacionales'} },
-  red_natura: { id:'red-natura', tag:'danger', tagLabel:'🔴 Red Natura / ZEPA', text:'Zona Red Natura 2000, ZEPA o LIC detectada', sub:'Vuelo recreativo puede estar prohibido. Consulta con la Consejería de Medio Ambiente autonómica.', link:{url:'https://www.miteco.gob.es/es/biodiversidad/temas/espacios-protegidos/red-natura-2000/',label:'→ Información MITECO'} },
-  ramsar: { id:'ramsar', tag:'danger', tagLabel:'🔴 Humedal Ramsar', text:'Humedal protegido (Convenio Ramsar) en la zona', sub:'Zona de especial protección para aves acuáticas. Consulta normativa autonómica antes de volar.' },
-  military: { id:'military', tag:'danger', tagLabel:'🔴 Zona Militar', text:'Posible instalación o zona militar cercana', sub:'Vuelo con drones absolutamente prohibido. ENAIRE también lo marcará como zona restringida.' },
-  urban: { id:'urban', tag:'warn', tagLabel:'⚠ Zona Urbana', text:'Zona urbana detectada — posibles ordenanzas locales', sub:'Muchos municipios tienen restricciones propias. Consulta la pestaña Ordenanzas o llama al ayuntamiento.', link:null },
-  coast: { id:'coast', tag:'warn', tagLabel:'⚠ Costa / Playa', text:'Zona costera — posibles restricciones en temporada', sub:'En verano la mayoría de municipios costeros prohíben el vuelo en playas. Consulta ordenanza local.', link:null },
-  ministerio: { id:'ministerio', tag:'warn', tagLabel:'📋 RD 517/2024', text:'Comunicación previa al Ministerio del Interior', sub:'Vuelo sobre núcleo urbano requiere comunicación online con 5 días de antelación. Trámite gratuito.', link:{url:'https://www.interior.gob.es/opencms/es/servicios-al-ciudadano/tramites-y-gestiones/drones/',label:'→ Formulario Ministerio del Interior'} },
-  aerodrome: { id:'aerodrome', tag:'danger', tagLabel:'🔴 Aeródromo cercano', text:'Aeródromo o helipuerto detectado en la zona', sub:'Zona CTR. Requiere coordinación obligatoria con ENAIRE (plataforma PLANEA, 20 días antelación).', link:{url:'https://drones.enaire.es',label:'→ Coordinar en ENAIRE'} }
-};
-
-// ═══════════════════════════════════════════════════════════════════════════
-// HIERARCHY LEVELS
-// ═══════════════════════════════════════════════════════════════════════════
-
 const LEVELS = [
-  {
-    num: 1, id: 'l-enaire',
-    org: 'ENAIRE', title: 'Espacio Aéreo',
-    defaultStatus: 'warn',
-    checks: [
-      { id:'enaire-map', text:'Consultar mapa ENAIRE Drones', sub:'Zona verde = OK. Amarilla = lee condiciones. Roja = no vueles.', link:{url:'https://drones.enaire.es',label:'→ Abrir ENAIRE Drones'} },
-      { id:'notam', text:'Revisar NOTAMs activos', sub:'Restricciones temporales: eventos, emergencias, ejercicios militares.', link:{url:'https://drones.enaire.es',label:'→ Ver NOTAMs'} },
-      { id:'altura', text:'Respetar altura máxima 120m', sub:'Límite categoría abierta A1. Sin excepciones salvo autorización AESA.' }
+  { num:1, id:'l-enaire', org:'ENAIRE', title:'Espacio A\u00e9reo', defaultStatus:'warn',
+    checks:[
+      { id:'enaire-map', text:'Consultar mapa ENAIRE Drones', sub:'Zona verde = OK. Amarilla = lee condiciones. Roja = no vueles.', link:{url:'https://drones.enaire.es',label:'\u2192 Abrir ENAIRE Drones'} },
+      { id:'notam', text:'Revisar NOTAMs activos', sub:'Restricciones temporales: eventos, emergencias, ejercicios militares.', link:{url:'https://drones.enaire.es',label:'\u2192 Ver NOTAMs'} },
+      { id:'altura', text:'Respetar altura m\u00e1xima 120m', sub:'L\u00edmite categor\u00eda abierta A1. Sin excepciones salvo autorizaci\u00f3n AESA.' }
     ]
   },
-  {
-    num: 2, id: 'l-aesa',
-    org: 'AESA / Estado', title: 'Normativa Nacional',
-    defaultStatus: 'ok',
-    checks: [
-      { id:'operador', text:'Número de operador UAS (AESA)', sub:'Obligatorio con cámara aunque sea <250g. Marcado en el dron.', link:{url:'https://sede.aesa.gob.es',label:'→ Registro AESA'} },
-      { id:'vlos', text:'Mantener el dron a la vista (VLOS)', sub:'Sin ayuda óptica. Máximo 120m de altura.' },
-      { id:'noche', text:'No volar de noche sin autorización', sub:'Requiere autorización AESA + luces de posición.' },
-      { id:'privacidad', text:'No grabar personas sin consentimiento', sub:'Aplica LOPDGDD. Especial cuidado en zonas urbanas.' }
+  { num:2, id:'l-aesa', org:'AESA / Estado', title:'Normativa Nacional', defaultStatus:'ok',
+    checks:[
+      { id:'operador2', text:'N\u00famero de operador UAS (AESA)', sub:'Obligatorio con c\u00e1mara aunque sea <250g.', link:{url:'https://sede.aesa.gob.es',label:'\u2192 Registro AESA'} },
+      { id:'vlos2', text:'Mantener el dron a la vista (VLOS)', sub:'Sin ayuda \u00f3ptica. M\u00e1ximo 120m de altura.' },
+      { id:'noche2', text:'No volar de noche sin autorizaci\u00f3n', sub:'Requiere autorizaci\u00f3n AESA + luces de posici\u00f3n.' },
+      { id:'privacidad2', text:'No grabar personas sin consentimiento', sub:'Aplica LOPDGDD.' }
     ]
   },
-  {
-    num: 3, id: 'l-miteco',
-    org: 'MITECO', title: 'Parques Nacionales',
-    defaultStatus: 'ok',
-    checks: [
-      { id:'miteco-check', text:'Verificar si hay Parque Nacional en la zona', sub:'Prohibición absoluta sin autorización. Consulta la Red de Parques Nacionales.', link:{url:'https://www.miteco.gob.es/es/red-parques-nacionales/',label:'→ Red Parques Nacionales'} }
+  { num:3, id:'l-miteco', org:'MITECO', title:'Parques Nacionales', defaultStatus:'ok',
+    checks:[
+      { id:'miteco-check', text:'Verificar si hay Parque Nacional en la zona', sub:'Prohibici\u00f3n absoluta sin autorizaci\u00f3n.', link:{url:'https://www.miteco.gob.es/es/red-parques-nacionales/',label:'\u2192 Red Parques Nacionales'} }
     ]
   },
-  {
-    num: 4, id: 'l-ccaa',
-    org: 'CCAA', title: 'Red Natura / ZEPA',
-    defaultStatus: 'ok',
-    checks: [
-      { id:'ccaa-check', text:'Verificar Red Natura 2000, ZEPA y LIC', sub:'Consulta con la Consejería de Medio Ambiente autonómica.', link:{url:'https://www.miteco.gob.es/es/biodiversidad/temas/espacios-protegidos/red-natura-2000/',label:'→ Visor MITECO'} }
+  { num:4, id:'l-ccaa', org:'CCAA', title:'Red Natura / ZEPA', defaultStatus:'ok',
+    checks:[
+      { id:'ccaa-check', text:'Verificar Red Natura 2000, ZEPA y LIC', sub:'Consulta con la Consejer\u00eda de Medio Ambiente auton\u00f3mica.', link:{url:'https://www.miteco.gob.es/es/biodiversidad/temas/espacios-protegidos/red-natura-2000/',label:'\u2192 Visor MITECO'} }
     ]
   },
-  {
-    num: 5, id: 'l-ayto',
-    org: 'Ayuntamiento', title: 'Ordenanza Municipal',
-    defaultStatus: 'ok',
-    checks: [
+  { num:5, id:'l-ayto', org:'Ayuntamiento', title:'Ordenanza Municipal', defaultStatus:'ok',
+    checks:[
       { id:'ayto-check', text:'Consultar ordenanza municipal de drones', sub:'Muchos municipios tienen normativa propia no reflejada en ENAIRE.' }
     ]
   }
 ];
 
-// ── SEASONAL ALERTS ──
+const LEVEL_ALERTS = {
+  1: {
+    aerodrome: { status:'danger', text:'Aer\u00f3dromo detectado', sub:'Zona CTR. Coordinaci\u00f3n obligatoria con ENAIRE (plataforma PLANEA, 20 d\u00edas antelaci\u00f3n).', link:{url:'https://drones.enaire.es',label:'\u2192 Plataforma PLANEA'} },
+    military:  { status:'danger', text:'Instalaci\u00f3n militar cercana', sub:'Vuelo absolutamente prohibido.' }
+  },
+  2: {
+    urban: { status:'warn', text:'Zona urbana \u2014 RD 517/2024', sub:'Comunicaci\u00f3n previa al Ministerio del Interior obligatoria con 5 d\u00edas de antelaci\u00f3n.', link:{url:'https://www.interior.gob.es/opencms/es/servicios-al-ciudadano/tramites-y-gestiones/drones/',label:'\u2192 Formulario Ministerio Interior'} }
+  },
+  3: {
+    national_park: { status:'danger', text:'Parque Nacional o Natural detectado', sub:'Vuelo recreativo generalmente PROHIBIDO. Contacta con la direcci\u00f3n del parque.', link:{url:'https://www.miteco.gob.es/es/red-parques-nacionales/',label:'\u2192 Red Parques Nacionales'} },
+    ramsar: { status:'danger', text:'Humedal Ramsar detectado', sub:'Zona de especial protecci\u00f3n para aves acu\u00e1ticas.' }
+  },
+  4: {
+    red_natura: { status:'danger', text:'Red Natura 2000 / ZEPA / LIC detectada', sub:'Vuelo puede estar prohibido. Consulta la Consejer\u00eda de Medio Ambiente auton\u00f3mica.', link:{url:'https://www.miteco.gob.es/es/biodiversidad/temas/espacios-protegidos/red-natura-2000/',label:'\u2192 Informaci\u00f3n MITECO'} },
+    coast: { status:'warn', text:'Zona costera \u2014 posibles restricciones auton\u00f3micas', sub:'Comunidades costeras pueden tener normativa adicional.' }
+  },
+  5: {
+    urban_ord: { status:'warn', text:'Zona urbana \u2014 consultar ordenanza local', sub:'Comprueba la pesta\u00f1a Ordenanzas o llama al ayuntamiento.' }
+  }
+};
+
 const SEASONAL_ALERTS = [
-  { months:[3,4,5,6,7], id:'season-birds', level:4, status:'warn',
-    text:'Época de cría de aves (marzo-julio)',
-    sub:'Las ZEPA y espacios naturales aplican restricciones más estrictas en esta época. Buitres, águilas y aves marinas son especialmente sensibles.' },
-  { months:[6,7,8], id:'season-beach', level:5, status:'warn',
-    text:'Temporada alta (junio-agosto)',
-    sub:'La mayoría de municipios costeros prohíben drones en playas en verano. Verificar ordenanza local aunque ENAIRE marque verde.' },
-  { months:[10,11,12,1,2], id:'season-hunting', level:4, status:'warn',
-    text:'Época de caza (oct-feb)',
-    sub:'En zonas de caza el vuelo de drones puede interferir con la actividad cinegética. Algunos cotos tienen restricciones adicionales.' }
+  { months:[3,4,5,6,7], id:'season-birds', level:4, status:'warn', text:'\u00c9poca de cr\u00eda de aves (marzo-julio)', sub:'Las ZEPA y espacios naturales aplican restricciones m\u00e1s estrictas en esta \u00e9poca.' },
+  { months:[6,7,8], id:'season-beach', level:5, status:'warn', text:'Temporada alta (junio-agosto)', sub:'La mayor\u00eda de municipios costeros proh\u00edben drones en playas en verano.' },
+  { months:[10,11,12,1,2], id:'season-hunting', level:4, status:'warn', text:'\u00c9poca de caza (oct-feb)', sub:'En zonas de caza el vuelo de drones puede interferir con la actividad cineget\u00edca.' }
 ];
 
 function getSeasonalAlerts() {
   const month = new Date().getMonth() + 1;
-  return SEASONAL_ALERTS.filter(a => a.months.includes(month));
+  return SEASONAL_ALERTS.filter(function(a) { return a.months.indexOf(month) >= 0; });
 }
 
-// Dynamic alerts keyed by level
-const LEVEL_ALERTS = {
-  1: { // ENAIRE
-    aerodrome: { status:'danger', text:'Aeródromo o helipuerto detectado (~8km)', sub:'Zona CTR. Coordinación obligatoria con ENAIRE (plataforma PLANEA, 20 días antelación).', link:{url:'https://drones.enaire.es',label:'→ Plataforma PLANEA'} },
-    military:  { status:'danger', text:'Instalación militar cercana', sub:'Vuelo absolutamente prohibido. ENAIRE lo marcará como zona restringida.' }
-  },
-  2: { // AESA/Estado
-    urban:     { status:'warn', text:'Zona urbana — RD 517/2024', sub:'Comunicación previa al Ministerio del Interior obligatoria con 5 días de antelación.', link:{url:'https://www.interior.gob.es/opencms/es/servicios-al-ciudadano/tramites-y-gestiones/drones/',label:'→ Formulario Ministerio Interior'} }
-  },
-  3: { // MITECO
-    national_park: { status:'danger', text:'Parque Nacional o Natural detectado', sub:'Vuelo recreativo generalmente PROHIBIDO. Contacta con la dirección del parque.', link:{url:'https://www.miteco.gob.es/es/red-parques-nacionales/',label:'→ Red Parques Nacionales'} },
-    ramsar:        { status:'danger', text:'Humedal Ramsar detectado', sub:'Zona de especial protección para aves acuáticas. Consulta normativa antes de volar.' }
-  },
-  4: { // CCAA
-    red_natura: { status:'danger', text:'Red Natura 2000 / ZEPA / LIC detectada', sub:'Vuelo puede estar prohibido. Consulta la Consejería de Medio Ambiente autonómica.', link:{url:'https://www.miteco.gob.es/es/biodiversidad/temas/espacios-protegidos/red-natura-2000/',label:'→ Información MITECO'} },
-    coast:      { status:'warn',   text:'Zona costera — posibles restricciones autonómicas', sub:'Comunidades costeras pueden tener normativa adicional en playas y litoral.' }
-  },
-  5: { // Ayuntamiento
-    urban_ord:  { status:'warn', text:'Zona urbana — consultar ordenanza local', sub:'Comprueba la pestaña Ordenanzas o llama al ayuntamiento.' }
-  }
-};
+// ═══════════════════════════════════════════════════════════════════════════
+// RENDER HIERARCHY LEVELS
+// ═══════════════════════════════════════════════════════════════════════════
 
 function toggleAccordion(id) {
   const el = document.getElementById(id);
-  el.classList.toggle('open');
+  if (el) el.classList.toggle('open');
 }
 
 function renderLevels(flags, ordinanceItem) {
   const container = document.getElementById('levels-container');
   const summary = document.getElementById('hierarchy-summary');
+  if (!container) return;
   container.innerHTML = '';
 
-  // Build alerts per level
   const levelAlerts = { 1:[], 2:[], 3:[], 4:[], 5:[] };
-  // Seasonal alerts
-  getSeasonalAlerts().forEach(a => levelAlerts[a.level].push({ status:a.status, text:a.text, sub:a.sub }));
+  getSeasonalAlerts().forEach(function(a) { levelAlerts[a.level].push({ status:a.status, text:a.text, sub:a.sub }); });
   if (flags.aerodrome)     levelAlerts[1].push(LEVEL_ALERTS[1].aerodrome);
   if (flags.military)      levelAlerts[1].push(LEVEL_ALERTS[1].military);
   if (flags.urban)         levelAlerts[2].push(LEVEL_ALERTS[2].urban);
@@ -1176,89 +1137,77 @@ function renderLevels(flags, ordinanceItem) {
   if (flags.urban)         levelAlerts[5].push(LEVEL_ALERTS[5].urban_ord);
   if (ordinanceItem)       levelAlerts[5].push({ status: ordinanceItem.tag === 'danger' ? 'danger' : ordinanceItem.tag === 'warn' ? 'warn' : 'ok', text: ordinanceItem.text, sub: ordinanceItem.sub, link: ordinanceItem.link });
 
-  // Summary dots
-  summary.innerHTML = '<span class="hierarchy-summary-title">Estado</span>';
-  let worstOverall = 'ok';
+  if (summary) summary.innerHTML = '<span class="hierarchy-summary-title">Estado</span>';
+  var worstOverall = 'ok';
 
-  LEVELS.forEach(level => {
+  LEVELS.forEach(function(level) {
     const alerts = levelAlerts[level.num];
-    let status = level.defaultStatus;
-    if (alerts.some(a => a.status === 'danger')) status = 'danger';
-    else if (alerts.some(a => a.status === 'warn')) status = 'warn';
-    else if (alerts.length > 0) status = 'ok';
-    if (status === 'danger' && worstOverall !== 'danger') worstOverall = 'danger';
-    else if (status === 'warn' && worstOverall === 'ok') worstOverall = 'warn';
+    var status = level.defaultStatus;
+    if (alerts.some(function(a) { return a.status === 'danger'; })) status = 'danger';
+    else if (alerts.some(function(a) { return a.status === 'warn'; })) status = 'warn';
+    if (status === 'danger') worstOverall = 'danger';
+    else if (status === 'warn' && worstOverall !== 'danger') worstOverall = 'warn';
 
-    // Summary dot
-    const dot = document.createElement('span');
-    dot.title = level.org;
-    dot.style.cssText = 'display:inline-flex;align-items:center;gap:4px;font-size:9px;color:var(--muted)';
-    dot.innerHTML = `<span class="level-dot ${status}"></span>${level.num}`;
-    summary.appendChild(dot);
+    if (summary) {
+      const dot = document.createElement('span');
+      dot.title = level.org;
+      dot.style.cssText = 'display:inline-flex;align-items:center;gap:4px;font-size:9px;color:var(--muted)';
+      dot.innerHTML = '<span class="level-dot ' + status + '"></span>' + level.num;
+      summary.appendChild(dot);
+    }
 
-    // Badge config
-    const badgeMap = { danger:'badge-danger ⚠ Restricción', warn:'badge-warn ⚑ Atención', ok:'badge-ok ✓ OK', unknown:'badge-unknown ? Sin datos' };
-    const [badgeCls, badgeLabel] = (badgeMap[status] || 'badge-unknown ? Sin datos').split(' ').reduce((a,v,i)=>i===0?[v,'']:[a[0],a[1]+' '+v],['','']);
+    const badgeLabels = { danger:'\u26a0 Restricci\u00f3n', warn:'\u2691 Atenci\u00f3n', ok:'\u2713 OK', unknown:'? Sin datos' };
+    const badgeCls = { danger:'badge-danger', warn:'badge-warn', ok:'badge-ok', unknown:'badge-unknown' };
 
-    // Accordion
     const acc = document.createElement('div');
-    acc.className = `level-accordion status-${status}`;
+    acc.className = 'level-accordion status-' + status;
     acc.id = level.id;
     if (status === 'danger' || status === 'warn') acc.classList.add('open');
 
-    // Build body content
-    let bodyHtml = '';
-    // Dynamic alerts first
-    alerts.forEach(a => {
-      const linkHtml = a.link ? `<a class="level-item-link" href="${a.link.url}" target="_blank">${a.link.label} ↗</a>` : '';
-      bodyHtml += `<div class="level-item"><div class="level-item-title" style="color:${a.status==='danger'?'var(--danger)':a.status==='warn'?'var(--warn)':'var(--accent)'}">${a.text}</div><div class="level-item-sub">${a.sub}</div>${linkHtml}</div>`;
+    var bodyHtml = '';
+    alerts.forEach(function(a) {
+      const linkHtml = a.link ? '<a class="level-item-link" href="' + a.link.url + '" target="_blank">' + a.link.label + ' \u2197</a>' : '';
+      const color = a.status === 'danger' ? 'var(--danger)' : a.status === 'warn' ? 'var(--warn)' : 'var(--accent)';
+      bodyHtml += '<div class="level-item"><div class="level-item-title" style="color:' + color + '">' + a.text + '</div><div class="level-item-sub">' + a.sub + '</div>' + linkHtml + '</div>';
     });
-    // Checklist items
-    level.checks.forEach(c => {
+    level.checks.forEach(function(c) {
       totalItems++;
-      const linkHtml = c.link ? `<a class="level-item-link" href="${c.link.url}" target="_blank" onclick="event.stopPropagation()">${c.link.label} ↗</a>` : '';
-      bodyHtml += `<div class="level-check-row" id="item-${c.id}" onclick="toggleItem('${c.id}')"><div class="level-check-box"></div><div class="item-content"><div class="level-item-title">${c.text}</div><div class="level-item-sub">${c.sub}</div>${linkHtml}</div></div>`;
+      const linkHtml = c.link ? '<a class="level-item-link" href="' + c.link.url + '" target="_blank" onclick="event.stopPropagation()">' + c.link.label + ' \u2197</a>' : '';
+      bodyHtml += '<div class="level-check-row" id="item-' + c.id + '" onclick="toggleItem(\'' + c.id + '\')"><div class="level-check-box"></div><div class="item-content"><div class="level-item-title">' + c.text + '</div><div class="level-item-sub">' + c.sub + '</div>' + linkHtml + '</div></div>';
     });
 
-    acc.innerHTML = `
-      <div class="level-header" onclick="toggleAccordion('${level.id}')">
-        <div class="level-num ${status}">${level.num}</div>
-        <div class="level-info">
-          <div class="level-org">${level.org}</div>
-          <div class="level-title-text">${level.title}</div>
-        </div>
-        <span class="level-status-badge ${badgeCls.trim()}">${badgeLabel.trim()}</span>
-        <span class="level-chevron">›</span>
-      </div>
-      <div class="level-body">${bodyHtml}</div>
-    `;
+    acc.innerHTML = '<div class="level-header" onclick="toggleAccordion(\'' + level.id + '\')">' +
+      '<div class="level-num ' + status + '">' + level.num + '</div>' +
+      '<div class="level-info"><div class="level-org">' + level.org + '</div><div class="level-title-text">' + level.title + '</div></div>' +
+      '<span class="level-status-badge ' + badgeCls[status] + '">' + badgeLabels[status] + '</span>' +
+      '<span class="level-chevron">\u203a</span></div>' +
+      '<div class="level-body">' + bodyHtml + '</div>';
     container.appendChild(acc);
   });
 
-  // Show container
   document.getElementById('hierarchy-container').classList.add('show');
 
-  // Update summary worst status text
-  const worstLabel = { danger:'⚠ Restricciones detectadas', warn:'⚑ Verificación recomendada', ok:'✓ Sin restricciones detectadas' }[worstOverall];
-  const worstColor = { danger:'var(--danger)', warn:'var(--warn)', ok:'var(--accent)' }[worstOverall];
-  const worstEl = document.createElement('span');
-  worstEl.style.cssText = `margin-left:auto;font-size:10px;font-weight:700;color:${worstColor};font-family:var(--font-head)`;
-  worstEl.textContent = worstLabel;
-  summary.appendChild(worstEl);
+  if (summary) {
+    const worstLabel = { danger:'\u26a0 Restricciones detectadas', warn:'\u2691 Verificaci\u00f3n recomendada', ok:'\u2713 Sin restricciones detectadas' }[worstOverall];
+    const worstColor = { danger:'var(--danger)', warn:'var(--warn)', ok:'var(--accent)' }[worstOverall];
+    const worstEl = document.createElement('span');
+    worstEl.style.cssText = 'margin-left:auto;font-size:10px;font-weight:700;color:' + worstColor + ';font-family:var(--font-head)';
+    worstEl.textContent = worstLabel;
+    summary.appendChild(worstEl);
+  }
 }
 
-// Keep renderSection for static sections
 function renderSection(secData, container) {
   const sec = document.createElement('div');
   sec.className = 'section'; sec.id = secData.id;
-  sec.innerHTML = `<div class="section-header"><div class="section-title">${secData.title}</div><div class="section-line"></div><div class="section-count">${secData.items.length}</div></div>`;
-  secData.items.forEach(item => {
+  sec.innerHTML = '<div class="section-header"><div class="section-title">' + secData.title + '</div><div class="section-line"></div><div class="section-count">' + secData.items.length + '</div></div>';
+  secData.items.forEach(function(item) {
     const div = document.createElement('div');
     div.className = 'checklist-item'; div.id = 'item-' + item.id;
-    div.onclick = () => toggleItem(item.id);
-    const tagCls = {danger:'tag-danger',warn:'tag-warn',info:'tag-info',local:'tag-local'}[item.tag]||'tag-info';
-    const linkHtml = item.link ? `<a class="item-link" href="${item.link.url}" target="_blank" onclick="event.stopPropagation()">${item.link.label} ↗</a>` : '';
-    div.innerHTML = `<div class="check-box"></div><div class="item-content"><div class="item-tag ${tagCls}">${item.tagLabel}</div><div class="item-text">${item.text}</div><div class="item-sub">${item.sub}</div>${linkHtml}</div>`;
+    div.onclick = function() { toggleItem(item.id); };
+    const tagCls = {danger:'tag-danger',warn:'tag-warn',info:'tag-info',local:'tag-local'}[item.tag] || 'tag-info';
+    const linkHtml = item.link ? '<a class="item-link" href="' + item.link.url + '" target="_blank" onclick="event.stopPropagation()">' + item.link.label + ' \u2197</a>' : '';
+    div.innerHTML = '<div class="check-box"></div><div class="item-content"><div class="item-tag ' + tagCls + '">' + item.tagLabel + '</div><div class="item-text">' + item.text + '</div><div class="item-sub">' + item.sub + '</div>' + linkHtml + '</div>';
     sec.appendChild(div);
     totalItems++;
   });
@@ -1267,17 +1216,20 @@ function renderSection(secData, container) {
 
 function buildChecklist(flags, ordinanceItem) {
   totalItems = 0; checkedItems.clear();
-  document.getElementById('hierarchy-container').classList.remove('show');
-  document.getElementById('levels-container').innerHTML = '';
+  var hc = document.getElementById('hierarchy-container');
+  var lc = document.getElementById('levels-container');
+  if (hc) hc.classList.remove('show');
+  if (lc) lc.innerHTML = '';
 
   renderLevels(flags, ordinanceItem);
 
   const statC = document.getElementById('static-sections');
-  statC.innerHTML = ''; statC.style.display = 'block';
-  // Only non-location static sections (vuelo rules, privacidad)
-  [STATIC_SECTIONS[1], STATIC_SECTIONS[2], STATIC_SECTIONS[3]].forEach(s => renderSection(s, statC));
-
-  document.getElementById('progress-card').classList.add('show');
+  if (statC) {
+    statC.innerHTML = ''; statC.style.display = 'block';
+    [STATIC_SECTIONS[0], STATIC_SECTIONS[1], STATIC_SECTIONS[2]].forEach(function(s) { renderSection(s, statC); });
+  }
+  var pc = document.getElementById('progress-card');
+  if (pc) pc.classList.add('show');
   updateProgress();
 }
 
@@ -1286,59 +1238,55 @@ function buildChecklist(flags, ordinanceItem) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function geocode(query) {
-  const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=1&lang=es&bbox=-9.5,35.9,4.5,43.8`;
+  const url = 'https://photon.komoot.io/api/?q=' + encodeURIComponent(query) + '&limit=1&lang=es&bbox=-9.5,35.9,4.5,43.8';
   const res = await fetch(url);
   const data = await res.json();
-  const feat = data.features?.[0];
+  const feat = data.features && data.features[0];
   if (!feat) return null;
-  const [lon, lat] = feat.geometry.coordinates;
+  const lon = feat.geometry.coordinates[0];
+  const lat = feat.geometry.coordinates[1];
   const p = feat.properties || {};
   return {
     lat: lat.toString(), lon: lon.toString(),
-    display_name: [p.name, p.city||p.town||p.village, p.state].filter(Boolean).join(', '),
+    display_name: [p.name, p.city || p.town || p.village, p.state].filter(Boolean).join(', '),
     address: { city:p.city, town:p.town, village:p.village, municipality:p.municipality }
   };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// OVERPASS — improved queries
+// OVERPASS
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function queryOverpass(query) {
   try {
-    const r = await fetch('https://overpass-api.de/api/interpreter', {
-      method:'POST', body:'data='+encodeURIComponent(query)
-    });
+    const r = await fetch('https://overpass-api.de/api/interpreter', { method:'POST', body:'data='+encodeURIComponent(query) });
     return (await r.json()).elements || [];
   } catch(e) { return []; }
 }
 
 async function checkProtectedAreas(lat, lon) {
   const r = 3000;
-  const q = `[out:json][timeout:12];(
-    way["boundary"="protected_area"](around:${r},${lat},${lon});
-    relation["boundary"="protected_area"](around:${r},${lat},${lon});
-    way["boundary"="national_park"](around:${r},${lat},${lon});
-    relation["boundary"="national_park"](around:${r},${lat},${lon});
-    way["leisure"="nature_reserve"](around:${r},${lat},${lon});
-    relation["leisure"="nature_reserve"](around:${r},${lat},${lon});
-    way["landuse"="military"](around:${r},${lat},${lon});
-    relation["landuse"="military"](around:${r},${lat},${lon});
-    way["aeroway"~"aerodrome|helipad|airstrip"](around:8000,${lat},${lon});
-    node["aeroway"~"aerodrome|helipad"](around:8000,${lat},${lon});
-    way["natural"~"wetland"](around:${r},${lat},${lon});
-    relation["natural"~"wetland"](around:${r},${lat},${lon});
-  );out tags;`;
+  const q = '[out:json][timeout:12];(' +
+    'way["boundary"="protected_area"](around:' + r + ',' + lat + ',' + lon + ');' +
+    'relation["boundary"="protected_area"](around:' + r + ',' + lat + ',' + lon + ');' +
+    'way["boundary"="national_park"](around:' + r + ',' + lat + ',' + lon + ');' +
+    'relation["boundary"="national_park"](around:' + r + ',' + lat + ',' + lon + ');' +
+    'way["leisure"="nature_reserve"](around:' + r + ',' + lat + ',' + lon + ');' +
+    'relation["leisure"="nature_reserve"](around:' + r + ',' + lat + ',' + lon + ');' +
+    'way["landuse"="military"](around:' + r + ',' + lat + ',' + lon + ');' +
+    'way["aeroway"~"aerodrome|helipad"](around:8000,' + lat + ',' + lon + ');' +
+    'node["aeroway"~"aerodrome|helipad"](around:8000,' + lat + ',' + lon + ');' +
+    'way["natural"="wetland"](around:' + r + ',' + lat + ',' + lon + ');' +
+    ');out tags;';
   return queryOverpass(q);
 }
 
 async function checkUrbanCoast(lat, lon) {
-  const q = `[out:json][timeout:8];(
-    way["landuse"~"residential|commercial|retail"](around:400,${lat},${lon});
-    way["natural"="coastline"](around:4000,${lat},${lon});
-    way["natural"="beach"](around:4000,${lat},${lon});
-    way["leisure"="beach_resort"](around:4000,${lat},${lon});
-  );out tags 8;`;
+  const q = '[out:json][timeout:8];(' +
+    'way["landuse"~"residential|commercial|retail"](around:400,' + lat + ',' + lon + ');' +
+    'way["natural"="coastline"](around:4000,' + lat + ',' + lon + ');' +
+    'way["natural"="beach"](around:4000,' + lat + ',' + lon + ');' +
+    ');out tags 8;';
   return queryOverpass(q);
 }
 
@@ -1346,26 +1294,51 @@ async function checkUrbanCoast(lat, lon) {
 // MAIN SEARCH
 // ═══════════════════════════════════════════════════════════════════════════
 
+const MAJOR_AIRPORTS = [
+  { name:'Madrid-Barajas (LEMD)', lat:40.4936, lon:-3.5670, radius:20 },
+  { name:'Barcelona El Prat (LEBL)', lat:41.2971, lon:2.0785, radius:18 },
+  { name:'M\u00e1laga (LEMG)', lat:36.6749, lon:-4.4991, radius:15 },
+  { name:'Palma (LEPA)', lat:39.5517, lon:2.7388, radius:15 },
+  { name:'Alicante (LEAL)', lat:38.2822, lon:-0.5582, radius:15 },
+  { name:'Valencia (LEVC)', lat:39.4893, lon:-0.4816, radius:12 },
+  { name:'Bilbao (LEBB)', lat:43.3011, lon:-2.9106, radius:12 },
+  { name:'Sevilla (LEZL)', lat:37.4180, lon:-5.8931, radius:12 },
+  { name:'Santiago (LEST)', lat:42.8963, lon:-8.4151, radius:12 },
+  { name:'A Coru\u00f1a (LECO)', lat:43.3021, lon:-8.3776, radius:10 },
+  { name:'Tenerife Sur (GCTS)', lat:28.0445, lon:-16.5725, radius:15 },
+  { name:'Gran Canaria (GCLP)', lat:27.9319, lon:-15.3866, radius:15 }
+];
+
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2-lat1)*Math.PI/180;
+  const dLon = (lon2-lon1)*Math.PI/180;
+  const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
 async function searchLocation() {
   const input = document.getElementById('location-input').value.trim();
   if (!input) return;
   const btn = document.getElementById('search-btn');
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; }
   hideAlert();
-  setStatus('Buscando ubicación...', 'loading');
+  setStatus('Buscando ubicaci\u00f3n...', 'loading');
 
   try {
-    let lat, lon, displayName, address = {};
+    var lat, lon, displayName, address = {};
     const coordMatch = input.match(/^(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)$/);
     if (coordMatch) {
       lat = parseFloat(coordMatch[1]); lon = parseFloat(coordMatch[2]);
-      displayName = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+      displayName = lat.toFixed(5) + ', ' + lon.toFixed(5);
     } else {
+      setStatus('Buscando "' + input + '" en Espa\u00f1a...', 'loading');
       const result = await geocode(input);
       if (!result) {
-        setStatus('Ubicación no encontrada. Prueba otro nombre.', 'error');
-        showAlert('danger', '⚠ No encontrado', 'Intenta con el municipio exacto o coordenadas (ej: 40.4168, -3.7038).');
-        btn.disabled = false; btn.textContent = 'IR'; return;
+        setStatus('Ubicaci\u00f3n no encontrada.', 'error');
+        showAlert('danger', '\u26a0 No encontrado', 'Intenta con el municipio exacto o coordenadas (ej: 40.4168, -3.7038).');
+        if (btn) { btn.disabled = false; btn.innerHTML = getSVGArrow(); }
+        return;
       }
       lat = parseFloat(result.lat); lon = parseFloat(result.lon);
       displayName = result.display_name;
@@ -1376,102 +1349,98 @@ async function searchLocation() {
     currentMuni = address.city || address.town || address.village || address.municipality || input;
 
     document.getElementById('loc-name').textContent = displayName;
-    document.getElementById('loc-coords').innerHTML = `<a class="coord-link" href="https://www.openstreetmap.org/?mlat=${lat.toFixed(5)}&mlon=${lon.toFixed(5)}&zoom=13" target="_blank">📍 ${lat.toFixed(5)}°N  ${lon.toFixed(5)}°E  ↗</a>`;
+    document.getElementById('loc-coords').innerHTML = '<a class="coord-link" href="https://www.openstreetmap.org/?mlat=' + lat.toFixed(5) + '&mlon=' + lon.toFixed(5) + '&zoom=13" target="_blank">\ud83d\udccd ' + lat.toFixed(5) + '\u00b0N  ' + lon.toFixed(5) + '\u00b0E  \u2197</a>';
     document.getElementById('location-result').classList.add('show');
-    // Update fav button state
+
     const favs = loadFavs();
-    const isFav = favs.some(f => f.name === displayName);
+    const isFav = favs.some(function(f) { return f.name === displayName; });
     const favBtn = document.getElementById('fav-btn');
-    favBtn.textContent = isFav ? '★' : '☆';
-    favBtn.style.color = isFav ? 'var(--warn)' : 'var(--muted)';
-    // Fetch weather
+    if (favBtn) { favBtn.textContent = isFav ? '\u2605' : '\u2606'; favBtn.style.color = isFav ? 'var(--warn)' : 'var(--muted)'; }
+
     fetchWeather(lat, lon);
-    // Save to history
     addToHistory(displayName, lat, lon);
-    // Update map if open
     if (mapInitialized) updateMapLocation();
-    // NOTAMs + Distance
     fetchNOTAMs(lat, lon);
     checkNearestProtectedArea(lat, lon);
 
     setStatus('Analizando espacios protegidos...', 'loading');
-    const [protectedAreas, urbanCoast] = await Promise.all([
-      checkProtectedAreas(lat, lon),
-      checkUrbanCoast(lat, lon)
-    ]);
+    const [protectedAreas, urbanCoast] = await Promise.all([checkProtectedAreas(lat, lon), checkUrbanCoast(lat, lon)]);
 
-    // Classify
-    let flags = { national_park:false, red_natura:false, ramsar:false, military:false, aerodrome:false };
-    protectedAreas.forEach(el => {
+    var flags = { national_park:false, red_natura:false, ramsar:false, military:false, aerodrome:false, urban:false, coast:false };
+
+    protectedAreas.forEach(function(el) {
       const t = el.tags || {};
       if (t.boundary === 'national_park' || (t.protect_class && parseInt(t.protect_class) <= 2)) flags.national_park = true;
-      if (t.boundary === 'protected_area') {
-        const pc = parseInt(t.protect_class || '99');
-        if (pc <= 4) flags.national_park = true;
-        else flags.red_natura = true;
-      }
+      if (t.boundary === 'protected_area') { const pc = parseInt(t.protect_class || '99'); if (pc <= 4) flags.national_park = true; else flags.red_natura = true; }
       if (t.leisure === 'nature_reserve') flags.red_natura = true;
       if (t.landuse === 'military') flags.military = true;
       if (t.aeroway) flags.aerodrome = true;
-      if (t.natural === 'wetland' && (t.wetland === 'ramsarsite' || t.ramsar)) flags.ramsar = true;
+      if (t.natural === 'wetland') flags.ramsar = true;
     });
 
-    let isUrban = false, isCoast = false;
-    urbanCoast.forEach(el => {
+    var isUrban = false, isCoast = false;
+    urbanCoast.forEach(function(el) {
       const t = el.tags || {};
       if (t.landuse) isUrban = true;
-      if (t.natural === 'coastline' || t.natural === 'beach' || t.leisure === 'beach_resort') isCoast = true;
+      if (t.natural === 'coastline' || t.natural === 'beach') isCoast = true;
     });
     if (address.city || address.town) isUrban = true;
 
-    const dynamicItems = [];
-    if (flags.national_park) dynamicItems.push({...DYNAMIC_TEMPLATES.national_park});
-    if (flags.red_natura) dynamicItems.push({...DYNAMIC_TEMPLATES.red_natura});
-    if (flags.ramsar) dynamicItems.push({...DYNAMIC_TEMPLATES.ramsar});
-    if (flags.military) dynamicItems.push({...DYNAMIC_TEMPLATES.military});
-    if (flags.aerodrome) dynamicItems.push({...DYNAMIC_TEMPLATES.aerodrome});
-    if (isCoast) dynamicItems.push({...DYNAMIC_TEMPLATES.coast});
-    if (isUrban) { dynamicItems.push({...DYNAMIC_TEMPLATES.urban}); dynamicItems.push({...DYNAMIC_TEMPLATES.ministerio}); }
+    flags.urban = isUrban;
+    flags.coast = isCoast;
 
-    // Check ordinance DB
-    let ordinanceItem = null;
-    if (currentMuni) {
-      const ord = findOrdinance(currentMuni);
-      if (ord) {
-        ordinanceItem = ordinanceToChecklistItem(ord);
+    // Major airports check
+    var nearestAirport = null;
+    for (var ai = 0; ai < MAJOR_AIRPORTS.length; ai++) {
+      const ap = MAJOR_AIRPORTS[ai];
+      const dist = haversineKm(lat, lon, ap.lat, ap.lon);
+      if (dist <= ap.radius) {
+        flags.aerodrome = true;
+        nearestAirport = { name:ap.name, dist:Math.round(dist) };
+        break;
       }
-      // Also silently trigger ordinance fetch in background
-      fetchOrdinanceIfNeeded(currentMuni);
+    }
+    if (nearestAirport) {
+      LEVEL_ALERTS[1].aerodrome.text = 'CTR ' + nearestAirport.name + ' \u2014 a ' + nearestAirport.dist + 'km';
     }
 
-    buildChecklist(dynamicItems, ordinanceItem);
+    var ordinanceItem = null;
+    if (currentMuni) {
+      const ord = findOrdinance(currentMuni);
+      if (ord) ordinanceItem = ordinanceToChecklistItem(ord);
+    }
 
-    const severeCount = dynamicItems.filter(i => i.tag === 'danger').length;
-    if (flags.national_park || flags.military) setStatus('Restricciones severas detectadas ↓', 'error');
-    else if (severeCount > 0) setStatus('Restricciones en la zona — revisa abajo', 'warn');
-    else setStatus('Análisis completado — revisa el checklist', 'ok');
+    buildChecklist(flags, ordinanceItem);
+
+    if (flags.national_park || flags.military) setStatus('Restricciones severas detectadas \u2193', 'error');
+    else if (flags.red_natura || flags.aerodrome || flags.urban) setStatus('Restricciones detectadas \u2014 revisa los niveles', 'warn');
+    else setStatus('An\u00e1lisis completado \u2014 revisa el checklist', 'ok');
 
   } catch(err) {
-    setStatus('Error de conexión. Comprueba internet.', 'error');
+    setStatus('Error de conexi\u00f3n. Comprueba internet.', 'error');
     console.error(err);
   }
-  btn.disabled = false; btn.textContent = 'IR';
+  if (btn) { btn.disabled = false; btn.innerHTML = getSVGArrow(); }
+}
+
+function getSVGArrow() {
+  return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 8 16 12 12 16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>';
 }
 
 function ordinanceToChecklistItem(ord) {
   const typeMap = {
-    ban: { tag:'danger', tagLabel:'🏛 Ordenanza: PROHIBIDO', prefix:'El municipio de ' + ord.municipio + ' prohíbe el vuelo de drones.' },
-    partial: { tag:'warn', tagLabel:'🏛 Ordenanza: Restricciones', prefix:'Restricciones municipales en ' + ord.municipio + ':' },
-    allowed: { tag:'info', tagLabel:'🏛 Ordenanza: Permitido', prefix:'Sin restricciones municipales extra en ' + ord.municipio + '.' },
-    unknown: { tag:'local', tagLabel:'🏛 Ordenanza: No verificada', prefix:'Sin datos de ordenanza para ' + ord.municipio + '. Consulta con el ayuntamiento.' }
+    ban: { tag:'danger', tagLabel:'\ud83c\udfd9 Ordenanza: PROHIBIDO', prefix:'El municipio de ' + ord.municipio + ' proh\u00edbe el vuelo de drones.' },
+    partial: { tag:'warn', tagLabel:'\ud83c\udfd9 Ordenanza: Restricciones', prefix:'Restricciones municipales en ' + ord.municipio + ':' },
+    allowed: { tag:'info', tagLabel:'\ud83c\udfd9 Ordenanza: Permitido', prefix:'Sin restricciones municipales extra en ' + ord.municipio + '.' },
+    unknown: { tag:'local', tagLabel:'\ud83c\udfd9 Ordenanza: No verificada', prefix:'Sin datos de ordenanza para ' + ord.municipio + '.' }
   };
   const cfg = typeMap[ord.restriction] || typeMap.unknown;
   return {
-    id: 'ord-' + ord.municipio.toLowerCase().replace(/\s/g,'-'),
+    id: 'ord-' + ord.municipio.toLowerCase().replace(/\s/g, '-'),
     tag: cfg.tag, tagLabel: cfg.tagLabel,
     text: cfg.prefix,
-    sub: ord.details || 'Fuente: ' + (ord.source || 'base de datos colaborativa') + ' · Estado: ' + ord.status,
-    link: ord.sourceUrl ? { url: ord.sourceUrl, label: '→ Ver ordenanza' } : null
+    sub: ord.details || ('Fuente: ' + (ord.source || 'base de datos colaborativa')),
+    link: ord.sourceUrl ? { url:ord.sourceUrl, label:'\u2192 Ver ordenanza' } : null
   };
 }
 
@@ -1479,13 +1448,493 @@ async function useGPS() {
   if (!navigator.geolocation) { setStatus('GPS no disponible.', 'error'); return; }
   setStatus('Obteniendo GPS...', 'loading');
   navigator.geolocation.getCurrentPosition(
-    pos => {
-      document.getElementById('location-input').value = `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
+    function(pos) {
+      document.getElementById('location-input').value = pos.coords.latitude.toFixed(5) + ', ' + pos.coords.longitude.toFixed(5);
       searchLocation();
     },
-    () => setStatus('No se pudo obtener el GPS.', 'error')
+    function() { setStatus('No se pudo obtener el GPS.', 'error'); }
   );
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WEATHER
+// ═══════════════════════════════════════════════════════════════════════════
+
+const WMO_ICONS = {0:'\u2600\ufe0f',1:'\ud83c\udf24',2:'\u26c5',3:'\u2601\ufe0f',45:'\ud83c\udf2b',48:'\ud83c\udf2b',51:'\ud83c\udf26',53:'\ud83c\udf26',55:'\ud83c\udf27',61:'\ud83c\udf27',63:'\ud83c\udf27',65:'\ud83c\udf27',71:'\ud83c\udf28',73:'\ud83c\udf28',75:'\u2744\ufe0f',80:'\ud83c\udf26',81:'\ud83c\udf27',82:'\u26c8',95:'\u26c8',96:'\u26c8',99:'\u26c8'};
+const WMO_DESC = {0:'Despejado',1:'Mayormente despejado',2:'Parcialmente nublado',3:'Nublado',45:'Niebla',51:'Llovizna ligera',61:'Lluvia ligera',63:'Lluvia',65:'Lluvia intensa',71:'Nieve ligera',80:'Chubascos',82:'Chubascos violentos',95:'Tormenta',96:'Tormenta con granizo'};
+
+async function fetchWeather(lat, lon) {
+  const card = document.getElementById('weather-card');
+  if (!card) return;
+  card.classList.add('show');
+  document.getElementById('weather-desc').textContent = 'Cargando...';
+  try {
+    const url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&current=temperature_2m,weathercode,windspeed_10m,windgusts_10m,cloudcover,visibility&wind_speed_unit=kmh&timezone=auto';
+    const res = await fetch(url);
+    const data = await res.json();
+    const c = data.current;
+    const wind = Math.round(c.windspeed_10m);
+    const gusts = Math.round(c.windgusts_10m);
+    const vis = Math.round((c.visibility || 10000) / 1000);
+    const wmo = c.weathercode;
+    document.getElementById('weather-icon').textContent = WMO_ICONS[wmo] || '\ud83c\udf24';
+    document.getElementById('weather-temp').textContent = Math.round(c.temperature_2m) + '\u00b0C';
+    document.getElementById('weather-desc').textContent = WMO_DESC[wmo] || 'Variable';
+    document.getElementById('weather-vis').textContent = vis;
+    document.getElementById('weather-cloud').textContent = c.cloudcover;
+    const windEl = document.getElementById('weather-wind');
+    windEl.textContent = wind;
+    windEl.className = 'weather-stat-val ' + (wind < 20 ? 'wind-ok' : wind < 36 ? 'wind-warn' : 'wind-bad');
+    const gustEl = document.getElementById('weather-gusts');
+    gustEl.textContent = gusts;
+    gustEl.className = 'weather-stat-val ' + (gusts < 28 ? 'wind-ok' : gusts < 45 ? 'wind-warn' : 'wind-bad');
+    if (wind >= 36 || gusts >= 45 || [65,82,95,96,99].indexOf(wmo) >= 0) {
+      showAlert('danger', '\u26a0 Condiciones meteorol\u00f3gicas adversas', 'Viento ' + wind + ' km/h (rachas ' + gusts + ' km/h). No recomendable volar.');
+    } else if (wind >= 20 || gusts >= 28) {
+      showAlert('warn', '\u2691 Viento moderado', 'Viento ' + wind + ' km/h (rachas ' + gusts + ' km/h). Volar con precauci\u00f3n.');
+    }
+  } catch(e) {
+    document.getElementById('weather-desc').textContent = 'Sin datos meteorol\u00f3gicos';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NOTAMs
+// ═══════════════════════════════════════════════════════════════════════════
+
+function fetchNOTAMs(lat, lon) {
+  const section = document.getElementById('notam-live-section');
+  if (!section) return;
+  const ICAO_REGIONS = [
+    { name:'Madrid', icao:'LEMD', lat:40.4936, lon:-3.5670 },
+    { name:'Barcelona', icao:'LEBL', lat:41.2971, lon:2.0785 },
+    { name:'M\u00e1laga', icao:'LEMG', lat:36.6749, lon:-4.4991 },
+    { name:'Palma', icao:'LEPA', lat:39.5517, lon:2.7388 },
+    { name:'Valencia', icao:'LEVC', lat:39.4893, lon:-0.4816 },
+    { name:'Bilbao', icao:'LEBB', lat:43.3011, lon:-2.9106 },
+    { name:'Sevilla', icao:'LEZL', lat:37.4180, lon:-5.8931 },
+    { name:'A Coru\u00f1a', icao:'LECO', lat:43.3021, lon:-8.3776 }
+  ];
+  var nearest = { name:'Espa\u00f1a', icao:'LECS' };
+  var minDist = Infinity;
+  ICAO_REGIONS.forEach(function(r) {
+    const d = haversineKm(lat, lon, r.lat, r.lon);
+    if (d < minDist) { minDist = d; nearest = r; }
+  });
+  section.style.display = 'block';
+  section.innerHTML = '<div class="notam-card">' +
+    '<div class="notam-header"><span class="notam-dot pulse"></span><span class="notam-title">NOTAMs activos \u2014 ' + nearest.name + '</span><span class="notam-icao">' + nearest.icao + '</span></div>' +
+    '<div class="notam-body">Consulta los NOTAMs activos antes de volar. Pueden restringir zonas que aparecen libres en ENAIRE.</div>' +
+    '<div class="notam-links">' +
+    '<a href="https://drones.enaire.es" target="_blank" class="notam-btn notam-btn-primary">\u2708 ENAIRE Drones</a>' +
+    '<a href="https://www.notams.faa.gov/dinsQueryWeb/queryRetrievalMapAction.do?reportType=Raw&retrieveLocId=' + nearest.icao + '&actionType=notamRetrievalByICAOs&submit=View+NOTAMs" target="_blank" class="notam-btn">NOTAMs ' + nearest.icao + '</a>' +
+    '</div></div>';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DISTANCE TO PROTECTED AREA
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function checkNearestProtectedArea(lat, lon) {
+  const section = document.getElementById('distance-section');
+  if (!section) return;
+  section.style.display = 'block';
+  section.innerHTML = '<div style="font-size:11px;color:var(--muted);padding:8px 0">Calculando distancia a zona protegida...</div>';
+  try {
+    const r = 50000;
+    const q = '[out:json][timeout:15];(way["boundary"="protected_area"](around:' + r + ',' + lat + ',' + lon + ');relation["boundary"="protected_area"](around:' + r + ',' + lat + ',' + lon + ');way["boundary"="national_park"](around:' + r + ',' + lat + ',' + lon + '););out center 5;';
+    const res = await fetch('https://overpass-api.de/api/interpreter', { method:'POST', body:'data='+encodeURIComponent(q) });
+    const data = await res.json();
+    if (!data.elements || data.elements.length === 0) {
+      section.innerHTML = '<div class="distance-card distance-ok">\u2713 Sin zonas protegidas en 50km</div>';
+      return;
+    }
+    var nearest = null, minDist = Infinity;
+    data.elements.forEach(function(el) {
+      const clat = el.center ? el.center.lat : el.lat;
+      const clon = el.center ? el.center.lon : el.lon;
+      if (!clat || !clon) return;
+      const d = haversineKm(lat, lon, clat, clon);
+      if (d < minDist) { minDist = d; nearest = { name: (el.tags && el.tags.name) || 'Espacio protegido', dist:d }; }
+    });
+    if (!nearest) { section.innerHTML = ''; return; }
+    const dist = nearest.dist;
+    const isInside = dist < 2;
+    const cls = isInside ? 'distance-danger' : dist < 5 ? 'distance-warn' : 'distance-ok';
+    const icon = isInside ? '\ud83d\udd34' : dist < 5 ? '\u26a0\ufe0f' : '\u2713';
+    const msg = isInside ? 'Dentro o en el l\u00edmite de ' + nearest.name : nearest.name + ' a ' + (dist < 1 ? Math.round(dist*1000)+'m' : dist.toFixed(1)+'km');
+    section.innerHTML = '<div class="distance-card ' + cls + '"><span>' + icon + '</span><div><div style="font-size:12px;font-weight:700">' + msg + '</div><div style="font-size:10px;opacity:0.7;margin-top:2px">Zona protegida m\u00e1s cercana</div></div></div>';
+  } catch(e) { section.innerHTML = ''; }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HISTORY + FAVOURITES
+// ═══════════════════════════════════════════════════════════════════════════
+
+function loadHistory() { try { return JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); } catch(e) { return []; } }
+function loadFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); } catch(e) { return []; } }
+function saveFavs(f) { localStorage.setItem(FAV_KEY, JSON.stringify(f)); }
+
+function addToHistory(name, lat, lon) {
+  var h = loadHistory().filter(function(i) { return i.name !== name; });
+  h.unshift({ name:name, lat:lat, lon:lon });
+  h = h.slice(0, 6);
+  localStorage.setItem(HIST_KEY, JSON.stringify(h));
+  renderQuickAccess();
+}
+
+function toggleFavourite() {
+  const name = document.getElementById('loc-name').textContent;
+  if (!name || name === '\u2014' || !currentLat) return;
+  var favs = loadFavs();
+  const idx = favs.findIndex(function(f) { return f.name === name; });
+  const btn = document.getElementById('fav-btn');
+  if (idx >= 0) {
+    favs.splice(idx, 1);
+    if (btn) { btn.textContent = '\u2606'; btn.style.color = 'var(--muted)'; }
+  } else {
+    favs.unshift({ name:name, lat:currentLat, lon:currentLon });
+    if (btn) { btn.textContent = '\u2605'; btn.style.color = 'var(--warn)'; }
+  }
+  saveFavs(favs);
+  renderQuickAccess();
+}
+
+function loadSpot(name, lat, lon) {
+  document.getElementById('location-input').value = name;
+  currentLat = lat; currentLon = lon;
+  document.getElementById('loc-name').textContent = name;
+  document.getElementById('loc-coords').innerHTML = '<a class="coord-link" href="https://www.openstreetmap.org/?mlat=' + lat.toFixed(5) + '&mlon=' + lon.toFixed(5) + '&zoom=13" target="_blank">\ud83d\udccd ' + lat.toFixed(5) + '\u00b0N  ' + lon.toFixed(5) + '\u00b0E  \u2197</a>';
+  document.getElementById('location-result').classList.add('show');
+  const favs = loadFavs();
+  const isFav = favs.some(function(f) { return f.name === name; });
+  const btn = document.getElementById('fav-btn');
+  if (btn) { btn.textContent = isFav ? '\u2605' : '\u2606'; btn.style.color = isFav ? 'var(--warn)' : 'var(--muted)'; }
+  searchLocation();
+}
+
+function removeFav(name, e) {
+  e.stopPropagation();
+  saveFavs(loadFavs().filter(function(f) { return f.name !== name; }));
+  renderQuickAccess();
+}
+
+function renderQuickAccess() {
+  const favs = loadFavs();
+  const history = loadHistory();
+  const favRow = document.getElementById('fav-row');
+  const histRow = document.getElementById('history-row');
+  const favChips = document.getElementById('fav-chips');
+  const histChips = document.getElementById('history-chips');
+  if (!favChips || !histChips) return;
+
+  favChips.innerHTML = '';
+  if (favs.length > 0 && favRow) {
+    favRow.classList.add('show');
+    favs.forEach(function(f) {
+      const chip = document.createElement('div');
+      chip.className = 'chip chip-fav';
+      chip.innerHTML = '<span onclick="loadSpot(\'' + f.name.replace(/'/g,"\\'") + '\',' + f.lat + ',' + f.lon + ')">\u2605 ' + f.name.split(',')[0] + '</span><span class="chip-del" onclick="removeFav(\'' + f.name.replace(/'/g,"\\'") + '\',event)">\u2715</span>';
+      favChips.appendChild(chip);
+    });
+  } else if (favRow) favRow.classList.remove('show');
+
+  histChips.innerHTML = '';
+  const nonFav = history.filter(function(h) { return !favs.some(function(f) { return f.name === h.name; }); });
+  if (nonFav.length > 0 && histRow) {
+    histRow.classList.add('show');
+    nonFav.forEach(function(h) {
+      const chip = document.createElement('div');
+      chip.className = 'chip';
+      chip.onclick = function() { loadSpot(h.name, h.lat, h.lon); };
+      chip.textContent = '\u21ba ' + h.name.split(',')[0];
+      histChips.appendChild(chip);
+    });
+  } else if (histRow) histRow.classList.remove('show');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THEME
+// ═══════════════════════════════════════════════════════════════════════════
+
+const SVG_SUN = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+const SVG_MOON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const next = current === 'light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', next === 'dark' ? '' : 'light');
+  const icon = document.getElementById('theme-icon');
+  if (icon) icon.innerHTML = next === 'light' ? SVG_MOON : SVG_SUN;
+  localStorage.setItem('dronecheck_theme', next);
+}
+
+function initTheme() {
+  const saved = localStorage.getItem('dronecheck_theme');
+  if (saved === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+    const icon = document.getElementById('theme-icon');
+    if (icon) icon.innerHTML = SVG_MOON;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MAP
+// ═══════════════════════════════════════════════════════════════════════════
+
+var leafletMap = null;
+var mapInitialized = false;
+var currentMarker = null;
+var protectedLayers = [];
+
+function initMap() {
+  if (mapInitialized) {
+    if (currentLat && currentLon) { leafletMap.setView([currentLat, currentLon], 13); updateMapLocation(); }
+    return;
+  }
+  mapInitialized = true;
+  const lat = currentLat || 40.4168;
+  const lon = currentLon || -3.7038;
+  leafletMap = L.map('leaflet-map', { zoomControl:true }).setView([lat, lon], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution:'\u00a9 OpenStreetMap', maxZoom:18 }).addTo(leafletMap);
+
+  // Click to select location
+  leafletMap.on('click', function(e) {
+    currentLat = e.latlng.lat;
+    currentLon = e.latlng.lng;
+    document.getElementById('location-input').value = currentLat.toFixed(5) + ', ' + currentLon.toFixed(5);
+    updateMapLocation();
+    searchLocation();
+    switchTab('check');
+  });
+
+  if (currentLat && currentLon) updateMapLocation();
+}
+
+function updateMapLocation() {
+  if (!leafletMap || !currentLat) return;
+  if (currentMarker) leafletMap.removeLayer(currentMarker);
+  const droneIcon = L.divIcon({
+    html: '<svg width="32" height="32" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="14" cy="14" rx="10" ry="4" fill="#00e5a0" opacity="0.8"/><ellipse cx="50" cy="14" rx="10" ry="4" fill="#00e5a0" opacity="0.8"/><ellipse cx="14" cy="50" rx="10" ry="4" fill="#00e5a0" opacity="0.8"/><ellipse cx="50" cy="50" rx="10" ry="4" fill="#00e5a0" opacity="0.8"/><line x1="14" y1="14" x2="32" y2="32" stroke="#fff" stroke-width="2.5"/><line x1="50" y1="14" x2="32" y2="32" stroke="#fff" stroke-width="2.5"/><line x1="14" y1="50" x2="32" y2="32" stroke="#fff" stroke-width="2.5"/><line x1="50" y1="50" x2="32" y2="32" stroke="#fff" stroke-width="2.5"/><rect x="24" y="24" width="16" height="12" rx="3" fill="#fff"/><rect x="28" y="36" width="2" height="6" fill="#fff"/><rect x="34" y="36" width="2" height="6" fill="#fff"/><rect x="26" y="42" width="12" height="2" rx="1" fill="#fff"/></svg>',
+    className:'', iconSize:[32,32], iconAnchor:[16,16]
+  });
+  currentMarker = L.marker([currentLat, currentLon], { icon:droneIcon }).addTo(leafletMap)
+    .bindPopup('<strong>' + (document.getElementById('loc-name').textContent.split(',')[0]) + '</strong>');
+  leafletMap.setView([currentLat, currentLon], 13);
+  const label = document.getElementById('map-location-label');
+  if (label) label.textContent = document.getElementById('loc-name').textContent.split(',')[0];
+  const centerBtn = document.getElementById('center-btn');
+  if (centerBtn) centerBtn.style.display = 'flex';
+  loadProtectedAreasOnMap(currentLat, currentLon);
+}
+
+async function loadProtectedAreasOnMap(lat, lon) {
+  protectedLayers.forEach(function(l) { leafletMap.removeLayer(l); });
+  protectedLayers = [];
+  const r = 15000;
+  const q = '[out:json][timeout:20];(way["boundary"="protected_area"](around:' + r + ',' + lat + ',' + lon + ');relation["boundary"="protected_area"](around:' + r + ',' + lat + ',' + lon + ');way["boundary"="national_park"](around:' + r + ',' + lat + ',' + lon + ');relation["boundary"="national_park"](around:' + r + ',' + lat + ',' + lon + '););out geom;';
+  try {
+    const res = await fetch('https://overpass-api.de/api/interpreter', { method:'POST', body:'data='+encodeURIComponent(q) });
+    const data = await res.json();
+    data.elements.forEach(function(el) {
+      const tags = el.tags || {};
+      const name = tags.name || 'Espacio protegido';
+      const pc = parseInt(tags.protect_class || '99');
+      const isNational = tags.boundary === 'national_park' || pc <= 2;
+      const color = isNational ? '#ff4444' : tags.leisure === 'nature_reserve' ? '#3388ff' : '#ff9900';
+      var coords = [];
+      if (el.type === 'way' && el.geometry) coords = el.geometry.map(function(p) { return [p.lat, p.lon]; });
+      else if (el.type === 'relation' && el.members) el.members.filter(function(m) { return m.type === 'way' && m.geometry; }).forEach(function(m) { m.geometry.forEach(function(p) { coords.push([p.lat, p.lon]); }); });
+      if (coords.length > 2) {
+        const poly = L.polygon(coords, { color:color, weight:2, opacity:0.8, fillColor:color, fillOpacity:0.15 }).addTo(leafletMap);
+        poly.bindPopup('<strong>' + name + '</strong>');
+        protectedLayers.push(poly);
+      }
+    });
+  } catch(e) { console.log('Map layers error:', e); }
+}
+
+function centerMap() { if (leafletMap && currentLat) leafletMap.setView([currentLat, currentLon], 13); }
+function openENAIRE() { window.open('https://drones.enaire.es/?lat=' + (currentLat||40.4168) + '&lng=' + (currentLon||-3.7038) + '&zoom=12', '_blank'); }
+function openMITECO() { window.open('https://www.miteco.gob.es/es/biodiversidad/servicios/banco-datos-naturaleza/informacion-disponible/visor_red_natura_2000.aspx', '_blank'); }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ORDINANCES
+// ═══════════════════════════════════════════════════════════════════════════
+
+function searchOrdinance() {
+  const input = document.getElementById('ord-input').value.trim();
+  if (!input) return;
+  setStatus('Buscando...', 'loading', 'ord-status-bar', 'ord-status-text');
+  const q = input.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const db = loadDB().filter(function(o) { return o.municipio !== '_norma_general' && !o.municipio.startsWith('_contacto'); });
+  const results = db.filter(function(o) {
+    const m = o.municipio.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const p = (o.provincia||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return m.includes(q) || p.includes(q);
+  });
+  if (results.length > 0) {
+    renderOrdinanceResults(results);
+    setStatus(results.length + ' resultado(s) encontrado(s)', 'ok', 'ord-status-bar', 'ord-status-text');
+  } else {
+    document.getElementById('ord-results').innerHTML = '<div class="empty-state"><div class="empty-icon">\ud83d\udceb</div><div style="font-family:var(--font-head);font-size:15px;font-weight:800;color:var(--text);margin-bottom:8px">' + input + ' a\u00fan no tiene datos</div><div class="empty-text" style="margin-bottom:16px">S\u00e9 el primero en a\u00f1adir la normativa de este municipio.</div><button onclick="prefillAndShowForm(\'' + input.replace(/'/g,"\\'") + '\')" class="btn" style="width:100%;max-width:280px">+ A\u00f1adir normativa de ' + input + '</button></div>';
+    setStatus('Sin datos \u2014 s\u00e9 el primero en a\u00f1adirlo', 'warn', 'ord-status-bar', 'ord-status-text');
+    document.getElementById('add-form').classList.add('show');
+  }
+}
+
+function prefillAndShowForm(municipio) {
+  switchTab('ord');
+  setTimeout(function() {
+    const muniInput = document.getElementById('form-muni');
+    if (muniInput) muniInput.value = municipio;
+    const form = document.getElementById('add-form');
+    if (form) { form.classList.add('show'); setTimeout(function() { form.scrollIntoView({ behavior:'smooth', block:'start' }); }, 100); }
+  }, 300);
+}
+
+function renderOrdinanceCard(ord) {
+  const votes = loadVotes();
+  const myVote = votes[ord.municipio] || null;
+  const restrictionCfg = {
+    ban: { cls:'restriction-ban', icon:'\ud83d\udeab', label:'Prohibido volar drones' },
+    partial: { cls:'restriction-partial', icon:'\u26a0', label:'Restricciones parciales' },
+    allowed: { cls:'restriction-allowed', icon:'\u2713', label:'Sin restricciones extra conocidas' },
+    unknown: { cls:'restriction-unknown', icon:'?', label:'Sin datos / no verificado' }
+  }[ord.restriction] || { cls:'restriction-unknown', icon:'?', label:'Desconocido' };
+  const statusCfg = {
+    'verified': { cls:'status-verified', label:'\u2713 Verificado' },
+    'ai-generated': { cls:'status-ai', label:'\u26a1 IA' },
+    'user-submitted': { cls:'status-pending', label:'\u23f3 Pendiente' }
+  }[ord.status] || { cls:'status-pending', label:'\u23f3 Pendiente' };
+  const card = document.createElement('div');
+  card.className = 'ordinance-card';
+  card.innerHTML = '<div class="ord-header"><div><div class="ord-muni">' + ord.municipio + '</div><div class="ord-prov">' + (ord.provincia||'') + '</div></div><div class="ord-status"><span class="status-badge ' + statusCfg.cls + '">' + statusCfg.label + '</span></div></div>' +
+    '<div class="ord-restriction ' + restrictionCfg.cls + '">' + restrictionCfg.icon + ' <strong>' + restrictionCfg.label + '</strong>' + (ord.details ? '<br><span style="font-weight:400;font-size:10px">' + ord.details + '</span>' : '') + '</div>' +
+    '<div class="ord-meta"><span class="ord-meta-item">\ud83d\udcc5 ' + (ord.date||'\u2014') + '</span>' + (ord.votes ? '<span class="ord-meta-item">\ud83d\udc4d ' + ord.votes.up + ' \u00b7 \ud83d\udc4e ' + ord.votes.down + '</span>' : '') + '</div>' +
+    '<div class="vote-row"><button class="vote-btn ' + (myVote==='up'?'voted-up':'') + '" onclick="vote(\'' + ord.municipio + '\',\'up\')">\ud83d\udc4d Correcto</button><button class="vote-btn ' + (myVote==='down'?'voted-down':'') + '" onclick="vote(\'' + ord.municipio + '\',\'down\')">\ud83d\udc4e Incorrecto</button></div>' +
+    (ord.sourceUrl ? '<div class="ord-source">Fuente: <a href="' + ord.sourceUrl + '" target="_blank">' + (ord.sourceName||ord.sourceUrl) + '</a></div>' : (ord.sourceName ? '<div class="ord-source">Fuente: ' + ord.sourceName + '</div>' : ''));
+  return card;
+}
+
+function renderOrdinanceResults(ords) {
+  const container = document.getElementById('ord-results');
+  if (!container) return;
+  container.innerHTML = '';
+  ords.forEach(function(o) { container.appendChild(renderOrdinanceCard(o)); });
+}
+
+function renderAllOrdinances() {
+  const db = loadDB().filter(function(o) { return o.municipio !== '_norma_general' && !o.municipio.startsWith('_contacto'); });
+  const container = document.getElementById('all-ordinances');
+  const countEl = document.getElementById('db-count');
+  if (!container) return;
+  container.innerHTML = '';
+  if (countEl) countEl.textContent = db.length + ' municipios';
+  if (db.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-icon">\ud83d\uddfa</div><div class="empty-text">A\u00fan no hay ordenanzas municipales.<br>Busca tu municipio y s\u00e9 el primero en a\u00f1adirlo.</div></div>';
+    return;
+  }
+  db.forEach(function(o) { container.appendChild(renderOrdinanceCard(o)); });
+}
+
+function vote(municipio, type) {
+  const votes = loadVotes();
+  const prev = votes[municipio];
+  votes[municipio] = prev === type ? null : type;
+  saveVotes(votes);
+  const db = loadDB();
+  const idx = db.findIndex(function(o) { return o.municipio === municipio; });
+  if (idx >= 0) {
+    if (!db[idx].votes) db[idx].votes = { up:0, down:0 };
+    if (prev === 'up') db[idx].votes.up = Math.max(0, db[idx].votes.up - 1);
+    if (prev === 'down') db[idx].votes.down = Math.max(0, db[idx].votes.down - 1);
+    if (votes[municipio] === 'up') db[idx].votes.up++;
+    if (votes[municipio] === 'down') db[idx].votes.down++;
+    if (db[idx].votes.up >= 3 && db[idx].status === 'ai-generated') db[idx].status = 'verified';
+    saveDB(db);
+  }
+  renderAllOrdinances();
+}
+
+function toggleAddForm() { document.getElementById('add-form').classList.toggle('show'); }
+
+function submitManualOrdinance() {
+  const muni = document.getElementById('form-muni').value.trim();
+  const prov = document.getElementById('form-prov').value.trim();
+  const rest = document.getElementById('form-restriction').value;
+  const details = document.getElementById('form-details').value.trim();
+  const source = document.getElementById('form-source').value.trim();
+  if (!muni) { alert('Escribe el nombre del municipio'); return; }
+  saveOrdinance({ municipio:muni, provincia:prov, restriction:rest, details:details, sourceUrl:source.startsWith('http')?source:null, sourceName:source||'Aportaci\u00f3n de usuario', status:'user-submitted', confidence:'medium', votes:{up:0,down:0}, date:new Date().toISOString().split('T')[0] });
+  toggleAddForm();
+  ['form-muni','form-prov','form-details','form-source'].forEach(function(id) { document.getElementById(id).value = ''; });
+  setStatus('Ordenanza a\u00f1adida', 'ok', 'ord-status-bar', 'ord-status-text');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EXPORT CHECKLIST
+// ═══════════════════════════════════════════════════════════════════════════
+
+function exportChecklist() {
+  try {
+    const location = document.getElementById('loc-name').textContent || 'Sin ubicaci\u00f3n';
+    const now = new Date();
+    const date = now.toLocaleDateString('es-ES') + ' ' + now.toLocaleTimeString('es-ES', {hour:'2-digit',minute:'2-digit'});
+    var text = 'DRONECHECK ES - Checklist de vuelo\n';
+    text += '========================================\n';
+    text += 'Ubicacion: ' + location + '\n';
+    text += 'Fecha: ' + date + '\n';
+    text += 'Completado: ' + checkedItems.size + '/' + totalItems + ' items\n';
+    text += 'Dron: <250g - Recreativo - Cat. A1\n';
+    text += '----------------------------------------\n\n';
+    document.querySelectorAll('.level-check-row, .checklist-item').forEach(function(el) {
+      const textEl = el.querySelector('.level-item-title, .item-text');
+      if (!textEl) return;
+      text += (el.classList.contains('checked') ? '[OK] ' : '[ ]  ') + textEl.textContent.trim() + '\n';
+    });
+    text += '\n----------------------------------------\n';
+    text += 'Generado con DroneCheck ES\n';
+    text += 'Verificar siempre en ENAIRE antes de volar.';
+    if (navigator.share) {
+      navigator.share({ title:'Checklist DroneCheck ES', text:text }).catch(function(e) { console.log('Share cancelled', e); });
+    } else {
+      const blob = new Blob([text], { type:'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'checklist_' + location.split(',')[0].replace(/[^a-zA-Z0-9]/g,'_') + '_' + now.toISOString().split('T')[0] + '.txt';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  } catch(e) { alert('Error al exportar: ' + e.message); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ADMIN TOOLS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function toggleAdminTools() {
+  const el = document.getElementById('admin-tools');
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function openClaudePrompt() {
+  const muni = currentMuni || document.getElementById('location-input').value.trim();
+  const prompt = 'Eres un experto en normativa de drones en Espa\u00f1a. Busca si el municipio de "' + muni + '" tiene ordenanza municipal o normativa local especifica para el vuelo de drones recreativos con drones de menos de 250g.\n\nResponde UNICAMENTE con un objeto JSON con esta estructura exacta, sin texto adicional:\n{\n  "municipio": "' + muni + '",\n  "provincia": "nombre de la provincia",\n  "restriction": "ban|partial|allowed|unknown",\n  "details": "descripcion concisa maximo 200 caracteres",\n  "sourceUrl": "URL de la fuente oficial o null",\n  "sourceName": "nombre de la fuente",\n  "confidence": "high|medium|low"\n}';
+  document.getElementById('claude-prompt-text').value = prompt;
+  document.getElementById('claude-modal').style.display = 'block';
+}
+
+function copyClaudePrompt() {
+  const ta = document.getElementById('claude-prompt-text');
+  ta.select();
+  document.execCommand('copy');
+  const btn = document.getElementById('copy-btn');
+  btn.textContent = '\u2713 Copiado';
+  setTimeout(function() { btn.textContent = 'Copiar prompt'; }, 2000);
+}
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BUILT-IN DATABASE
@@ -1720,769 +2169,26 @@ const BUILTIN_DB = [
 function initBuiltinDB() {
   const db = loadDB();
   let added = 0;
-  BUILTIN_DB.forEach(ord => {
-    if (!db.find(o => o.municipio === ord.municipio)) {
+  BUILTIN_DB.forEach(function(ord) {
+    if (!db.find(function(o) { return o.municipio === ord.municipio; })) {
       db.push(ord); added++;
     }
   });
   if (added > 0) saveDB(db);
 }
 
-function fetchOrdinanceIfNeeded(municipio) { /* no-op sin API key */ }
-
-function searchOrdinance() {
-  const input = document.getElementById('ord-input').value.trim();
-  if (!input) return;
-  setStatus('Buscando...', 'loading', 'ord-status-bar', 'ord-status-text');
-
-  const q = input.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-  const db = loadDB().filter(o => o.municipio !== '_norma_general');
-  const results = db.filter(o => {
-    const m = o.municipio.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-    const p = (o.provincia||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-    return m.includes(q) || p.includes(q);
-  });
-
-  if (results.length > 0) {
-    renderOrdinanceResults(results);
-    setStatus(results.length + ' resultado(s) encontrado(s)', 'ok', 'ord-status-bar', 'ord-status-text');
-  } else {
-    document.getElementById('ord-results').innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">🔍</div>
-        <div class="empty-text">Sin datos para "<strong>\${input}</strong>".<br><br>
-        Recuerda: en cualquier núcleo urbano aplica el RD 517/2024 —
-        comunicación al Ministerio del Interior con 5 días de antelación.<br><br>
-        Si conoces la normativa local, ¡añádela!</div>
-      </div>`;
-    setStatus('Sin datos locales — puedes añadirlo manualmente', 'warn', 'ord-status-bar', 'ord-status-text');
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// RENDER ORDINANCES
-// ═══════════════════════════════════════════════════════════════════════════
-
-function renderOrdinanceCard(ord) {
-  const votes = loadVotes();
-  const myVote = votes[ord.municipio] || null;
-
-  const restrictionCfg = {
-    ban: { cls:'restriction-ban', icon:'🚫', label:'Prohibido volar drones' },
-    partial: { cls:'restriction-partial', icon:'⚠', label:'Restricciones parciales' },
-    allowed: { cls:'restriction-allowed', icon:'✓', label:'Sin restricciones extra conocidas' },
-    unknown: { cls:'restriction-unknown', icon:'?', label:'Sin datos / no verificado' }
-  }[ord.restriction] || { cls:'restriction-unknown', icon:'?', label:'Desconocido' };
-
-  const statusCfg = {
-    'verified': { cls:'status-verified', label:'✓ Verificado' },
-    'ai-generated': { cls:'status-ai', label:'⚡ IA' },
-    'user-submitted': { cls:'status-pending', label:'⏳ Pendiente' }
-  }[ord.status] || { cls:'status-pending', label:'⏳ Pendiente' };
-
-  const card = document.createElement('div');
-  card.className = 'ordinance-card';
-  card.id = 'ord-card-' + ord.municipio.toLowerCase().replace(/\s/g,'-');
-  card.innerHTML = `
-    <div class="ord-header">
-      <div>
-        <div class="ord-muni">${ord.municipio}</div>
-        <div class="ord-prov">${ord.provincia || ''}</div>
-      </div>
-      <div class="ord-status"><span class="status-badge ${statusCfg.cls}">${statusCfg.label}</span></div>
-    </div>
-    <div class="ord-restriction ${restrictionCfg.cls}">
-      ${restrictionCfg.icon} <strong>${restrictionCfg.label}</strong>${ord.details ? '<br><span style="font-weight:400;font-size:10px">' + ord.details + '</span>' : ''}
-    </div>
-    <div class="ord-meta">
-      <span class="ord-meta-item">📅 ${ord.date || '—'}</span>
-      ${ord.confidence ? `<span class="ord-meta-item">Confianza: ${ord.confidence}</span>` : ''}
-      ${ord.votes ? `<span class="ord-meta-item">👍 ${ord.votes.up} · 👎 ${ord.votes.down}</span>` : ''}
-    </div>
-    <div class="vote-row">
-      <button class="vote-btn ${myVote==='up'?'voted-up':''}" onclick="vote('${ord.municipio}','up')">👍 Correcto</button>
-      <button class="vote-btn ${myVote==='down'?'voted-down':''}" onclick="vote('${ord.municipio}','down')">👎 Incorrecto</button>
-      <span class="vote-hint">¿Es preciso?</span>
-    </div>
-    ${ord.sourceUrl ? `<div class="ord-source">Fuente: <a href="${ord.sourceUrl}" target="_blank">${ord.sourceName || ord.sourceUrl}</a></div>` : (ord.sourceName ? `<div class="ord-source">Fuente: ${ord.sourceName}</div>` : '')}
-  `;
-  return card;
-}
-
-function renderOrdinanceResults(ords) {
-  const container = document.getElementById('ord-results');
-  container.innerHTML = '';
-  ords.forEach(o => container.appendChild(renderOrdinanceCard(o)));
-}
-
-function renderAllOrdinances() {
-  const db = loadDB();
-  const container = document.getElementById('all-ordinances');
-  container.innerHTML = '';
-  document.getElementById('db-count').textContent = db.length + ' municipios';
-  if (db.length === 0) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-icon">🗺</div><div class="empty-text">Aún no hay ordenanzas municipales.<br>Busca tu municipio y sé el primero en añadirlo.</div></div>`;
-    return;
-  }
-  db.forEach(o => container.appendChild(renderOrdinanceCard(o)));
-}
-
-function vote(municipio, type) {
-  const votes = loadVotes();
-  const prev = votes[municipio];
-  votes[municipio] = prev === type ? null : type; // toggle
-  saveVotes(votes);
-
-  // Update vote counts in DB
-  const db = loadDB();
-  const idx = db.findIndex(o => o.municipio === municipio);
-  if (idx >= 0) {
-    if (!db[idx].votes) db[idx].votes = { up:0, down:0 };
-    if (prev === 'up') db[idx].votes.up = Math.max(0, db[idx].votes.up - 1);
-    if (prev === 'down') db[idx].votes.down = Math.max(0, db[idx].votes.down - 1);
-    if (votes[municipio] === 'up') db[idx].votes.up++;
-    if (votes[municipio] === 'down') db[idx].votes.down++;
-    // Auto-promote if enough up votes
-    if (db[idx].votes.up >= 3 && db[idx].status === 'ai-generated') db[idx].status = 'verified';
-    saveDB(db);
-  }
-  // Re-render
-  renderAllOrdinances();
-  const results = document.getElementById('ord-results');
-  if (results.children.length > 0) {
-    const existing = findOrdinance(municipio);
-    if (existing) renderOrdinanceResults([existing]);
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// MANUAL ADD
-// ═══════════════════════════════════════════════════════════════════════════
-
-function toggleAddForm() {
-  document.getElementById('add-form').classList.toggle('show');
-}
-
-function submitManualOrdinance() {
-  const muni = document.getElementById('form-muni').value.trim();
-  const prov = document.getElementById('form-prov').value.trim();
-  const rest = document.getElementById('form-restriction').value;
-  const details = document.getElementById('form-details').value.trim();
-  const source = document.getElementById('form-source').value.trim();
-  if (!muni) { alert('Escribe el nombre del municipio'); return; }
-
-  const ord = {
-    municipio: muni, provincia: prov, restriction: rest, details,
-    sourceUrl: source.startsWith('http') ? source : null,
-    sourceName: source || 'Aportación de usuario',
-    status: 'user-submitted', confidence: 'medium',
-    votes: { up:0, down:0 },
-    date: new Date().toISOString().split('T')[0]
-  };
-  saveOrdinance(ord);
-  toggleAddForm();
-  // Clear form
-  ['form-muni','form-prov','form-details','form-source'].forEach(id => document.getElementById(id).value = '');
-  renderAllOrdinances();
-  renderOrdinanceResults([ord]);
-  setStatus('Ordenanza añadida · Pendiente de validación', 'ok', 'ord-status-bar', 'ord-status-text');
-}
-
-
-// ═══════════════════════════════════════════════════════════════════════════
-// THEME
-// ═══════════════════════════════════════════════════════════════════════════
-
-function toggleTheme() {
-  const current = document.documentElement.getAttribute('data-theme');
-  const next = current === 'light' ? 'dark' : 'light';
-  document.documentElement.setAttribute('data-theme', next === 'dark' ? '' : 'light');
-  document.getElementById('theme-icon').innerHTML = next === 'light' ? `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>` : `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
-  localStorage.setItem('dronecheck_theme', next);
-}
-
-function initTheme() {
-  const saved = localStorage.getItem('dronecheck_theme');
-  if (saved === 'light') {
-    document.documentElement.setAttribute('data-theme', 'light');
-    document.getElementById('theme-icon').textContent = '🌙';
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// WEATHER — Open-Meteo (free, no API key)
-// ═══════════════════════════════════════════════════════════════════════════
-
-const WMO_ICONS = {
-  0:'☀️', 1:'🌤', 2:'⛅', 3:'☁️',
-  45:'🌫', 48:'🌫',
-  51:'🌦', 53:'🌦', 55:'🌧',
-  61:'🌧', 63:'🌧', 65:'🌧',
-  71:'🌨', 73:'🌨', 75:'❄️',
-  80:'🌦', 81:'🌧', 82:'⛈',
-  95:'⛈', 96:'⛈', 99:'⛈'
-};
-const WMO_DESC = {
-  0:'Despejado', 1:'Mayormente despejado', 2:'Parcialmente nublado', 3:'Nublado',
-  45:'Niebla', 48:'Niebla con escarcha',
-  51:'Llovizna ligera', 53:'Llovizna', 55:'Llovizna intensa',
-  61:'Lluvia ligera', 63:'Lluvia', 65:'Lluvia intensa',
-  71:'Nieve ligera', 73:'Nieve', 75:'Nieve intensa',
-  80:'Chubascos', 81:'Chubascos fuertes', 82:'Chubascos violentos',
-  95:'Tormenta', 96:'Tormenta con granizo', 99:'Tormenta fuerte'
-};
-
-async function fetchWeather(lat, lon) {
-  const card = document.getElementById('weather-card');
-  card.classList.add('show');
-  document.getElementById('weather-desc').textContent = 'Cargando...';
-  try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode,windspeed_10m,windgusts_10m,cloudcover,visibility&wind_speed_unit=kmh&timezone=auto`;
-    const res = await fetch(url);
-    const data = await res.json();
-    const c = data.current;
-    const wind = Math.round(c.windspeed_10m);
-    const gusts = Math.round(c.windgusts_10m);
-    const vis = Math.round((c.visibility || 10000) / 1000);
-    const wmo = c.weathercode;
-
-    document.getElementById('weather-icon').textContent = WMO_ICONS[wmo] || '🌤';
-    document.getElementById('weather-temp').textContent = Math.round(c.temperature_2m) + '°C';
-    document.getElementById('weather-desc').textContent = WMO_DESC[wmo] || 'Variable';
-    document.getElementById('weather-vis').textContent = vis;
-    document.getElementById('weather-cloud').textContent = c.cloudcover;
-
-    const windEl = document.getElementById('weather-wind');
-    windEl.textContent = wind;
-    windEl.className = 'weather-stat-val ' + (wind < 20 ? 'wind-ok' : wind < 36 ? 'wind-warn' : 'wind-bad');
-
-    const gustEl = document.getElementById('weather-gusts');
-    gustEl.textContent = gusts;
-    gustEl.className = 'weather-stat-val ' + (gusts < 28 ? 'wind-ok' : gusts < 45 ? 'wind-warn' : 'wind-bad');
-
-    // Warn if not flyable
-    if (wind >= 36 || gusts >= 45 || [65,82,95,96,99].includes(wmo)) {
-      showAlert('danger', '⚠ Condiciones meteorológicas adversas', `Viento ${wind} km/h (rachas ${gusts} km/h). No recomendable volar con dron <250g.`);
-    } else if (wind >= 20 || gusts >= 28) {
-      showAlert('warn', '⚑ Viento moderado', `Viento ${wind} km/h (rachas ${gusts} km/h). Volar con precaución.`);
-    }
-  } catch(e) {
-    document.getElementById('weather-desc').textContent = 'Sin datos meteorológicos';
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// HISTORY + FAVOURITES
-// ═══════════════════════════════════════════════════════════════════════════
-
-const HIST_KEY = 'dronecheck_history_v1';
-const FAV_KEY = 'dronecheck_favs_v1';
-
-function loadHistory() { try { return JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); } catch(e) { return []; } }
-function loadFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); } catch(e) { return []; } }
-function saveFavs(f) { localStorage.setItem(FAV_KEY, JSON.stringify(f)); }
-
-function addToHistory(name, lat, lon) {
-  let h = loadHistory().filter(i => i.name !== name);
-  h.unshift({ name, lat, lon });
-  h = h.slice(0, 6);
-  localStorage.setItem(HIST_KEY, JSON.stringify(h));
-  renderQuickAccess();
-}
-
-function toggleAdminTools() {
-  const el = document.getElementById('admin-tools');
-  el.style.display = el.style.display === 'none' ? 'block' : 'none';
-}
-
-function toggleFavourite() {
-  const name = document.getElementById('loc-name').textContent;
-  if (!name || name === '—' || !currentLat) return;
-  let favs = loadFavs();
-  const idx = favs.findIndex(f => f.name === name);
-  if (idx >= 0) {
-    favs.splice(idx, 1);
-    document.getElementById('fav-btn').textContent = '☆';
-  } else {
-    favs.unshift({ name, lat: currentLat, lon: currentLon });
-    document.getElementById('fav-btn').textContent = '★';
-    document.getElementById('fav-btn').style.color = 'var(--warn)';
-  }
-  saveFavs(favs);
-  renderQuickAccess();
-}
-
-function loadSpot(name, lat, lon) {
-  document.getElementById('location-input').value = name;
-  currentLat = lat; currentLon = lon;
-  // Trigger search with known coords
-  document.getElementById('loc-name').textContent = name;
-  document.getElementById('loc-coords').innerHTML = `<a class="coord-link" href="https://www.openstreetmap.org/?mlat=${lat.toFixed(5)}&mlon=${lon.toFixed(5)}&zoom=13" target="_blank">📍 ${lat.toFixed(5)}°N  ${lon.toFixed(5)}°E  ↗</a>`;
-  document.getElementById('location-result').classList.add('show');
-  // Update fav button
-  const favs = loadFavs();
-  const isFav = favs.some(f => f.name === name);
-  const btn = document.getElementById('fav-btn');
-  btn.textContent = isFav ? '★' : '☆';
-  btn.style.color = isFav ? 'var(--warn)' : 'var(--muted)';
-  searchLocation();
-}
-
-function removeFav(name, e) {
-  e.stopPropagation();
-  let favs = loadFavs().filter(f => f.name !== name);
-  saveFavs(favs);
-  renderQuickAccess();
-}
-
-function renderQuickAccess() {
-  const favs = loadFavs();
-  const history = loadHistory();
-  const favRow = document.getElementById('fav-row');
-  const histRow = document.getElementById('history-row');
-  const favChips = document.getElementById('fav-chips');
-  const histChips = document.getElementById('history-chips');
-
-  favChips.innerHTML = '';
-  if (favs.length > 0) {
-    favRow.classList.add('show');
-    favs.forEach(f => {
-      const chip = document.createElement('div');
-      chip.className = 'chip chip-fav';
-      chip.innerHTML = `<span onclick="loadSpot('${f.name}',${f.lat},${f.lon})">★ ${f.name.split(',')[0]}</span><span class="chip-del" onclick="removeFav('${f.name}',event)">✕</span>`;
-      favChips.appendChild(chip);
-    });
-  } else favRow.classList.remove('show');
-
-  histChips.innerHTML = '';
-  const nonFavHistory = history.filter(h => !favs.some(f => f.name === h.name));
-  if (nonFavHistory.length > 0) {
-    histRow.classList.add('show');
-    nonFavHistory.forEach(h => {
-      const chip = document.createElement('div');
-      chip.className = 'chip';
-      chip.onclick = () => loadSpot(h.name, h.lat, h.lon);
-      chip.textContent = '↺ ' + h.name.split(',')[0];
-      histChips.appendChild(chip);
-    });
-  } else histRow.classList.remove('show');
-}
-
-
-// ═══════════════════════════════════════════════════════════════════════════
-// MAP — Leaflet + OSM + Protected areas
-// ═══════════════════════════════════════════════════════════════════════════
-
-let leafletMap = null;
-let mapInitialized = false;
-let currentMarker = null;
-let protectedLayers = [];
-
-function initMap() {
-  if (mapInitialized) {
-    // If we have a location, re-center
-    if (currentLat && currentLon) {
-      leafletMap.setView([currentLat, currentLon], 13);
-      updateMapLocation();
-    }
-    return;
-  }
-  mapInitialized = true;
-
-  const lat = currentLat || 40.4168;
-  const lon = currentLon || -3.7038;
-
-  leafletMap = L.map('leaflet-map', { zoomControl: true }).setView([lat, lon], 12);
-
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap',
-    maxZoom: 18
-  }).addTo(leafletMap);
-
-  if (currentLat && currentLon) updateMapLocation();
-}
-
-function updateMapLocation() {
-  if (!leafletMap || !currentLat) return;
-
-  // Remove old marker
-  if (currentMarker) leafletMap.removeLayer(currentMarker);
-
-  // Custom drone marker
-  const droneIcon = L.divIcon({
-    html: '<div style="font-size:24px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5))">🚁</div>',
-    className: '',
-    iconSize: [28, 28],
-    iconAnchor: [14, 14]
-  });
-
-  currentMarker = L.marker([currentLat, currentLon], { icon: droneIcon })
-    .addTo(leafletMap)
-    .bindPopup(`<strong>${document.getElementById('loc-name').textContent.split(',')[0]}</strong><br><small>${currentLat.toFixed(4)}°N ${currentLon.toFixed(4)}°E</small>`);
-
-  leafletMap.setView([currentLat, currentLon], 13);
-
-  // Update label
-  const label = document.getElementById('map-location-label');
-  if (label) label.textContent = document.getElementById('loc-name').textContent.split(',')[0];
-
-  // Show center button
-  const centerBtn = document.getElementById('center-btn');
-  if (centerBtn) centerBtn.style.display = 'flex';
-
-  // Load protected areas
-  loadProtectedAreasOnMap(currentLat, currentLon);
-}
-
-async function loadProtectedAreasOnMap(lat, lon) {
-  // Clear old layers
-  protectedLayers.forEach(l => leafletMap.removeLayer(l));
-  protectedLayers = [];
-
-  const r = 15000; // 15km radius
-  const query = `[out:json][timeout:20];(
-    way["boundary"="protected_area"](around:${r},${lat},${lon});
-    relation["boundary"="protected_area"](around:${r},${lat},${lon});
-    way["boundary"="national_park"](around:${r},${lat},${lon});
-    relation["boundary"="national_park"](around:${r},${lat},${lon});
-    way["leisure"="nature_reserve"](around:${r},${lat},${lon});
-    relation["leisure"="nature_reserve"](around:${r},${lat},${lon});
-  );out geom;`;
-
-  try {
-    const res = await fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST', body: 'data=' + encodeURIComponent(query)
-    });
-    const data = await res.json();
-
-    data.elements.forEach(el => {
-      const tags = el.tags || {};
-      const name = tags.name || 'Espacio protegido';
-      const pc = parseInt(tags.protect_class || '99');
-      const isNational = tags.boundary === 'national_park' || pc <= 2;
-      const color = isNational ? '#ff4444' : tags.leisure === 'nature_reserve' ? '#3388ff' : '#ff9900';
-      const label = isNational ? '🔴 Parque Nacional' : tags.leisure === 'nature_reserve' ? '🔵 Reserva Natural' : '🟠 Red Natura / ZEPA';
-
-      // Build polygon from geometry
-      let coords = [];
-      if (el.type === 'way' && el.geometry) {
-        coords = el.geometry.map(p => [p.lat, p.lon]);
-      } else if (el.type === 'relation' && el.members) {
-        el.members.filter(m => m.type === 'way' && m.geometry).forEach(m => {
-          m.geometry.forEach(p => coords.push([p.lat, p.lon]));
-        });
-      }
-
-      if (coords.length > 2) {
-        const poly = L.polygon(coords, {
-          color, weight: 2, opacity: 0.8,
-          fillColor: color, fillOpacity: 0.15
-        }).addTo(leafletMap);
-        poly.bindPopup(`<strong>${label}</strong><br>${name}`);
-        protectedLayers.push(poly);
-      }
-    });
-  } catch(e) {
-    console.log('Map layers error:', e);
-  }
-}
-
-function centerMap() {
-  if (leafletMap && currentLat) leafletMap.setView([currentLat, currentLon], 13);
-}
-
-function openENAIRE() {
-  const lat = currentLat || 40.4168;
-  const lon = currentLon || -3.7038;
-  window.open(`https://drones.enaire.es/?lat=${lat}&lng=${lon}&zoom=12`, '_blank');
-}
-
-function openMITECO() {
-  // MITECO visor Red Natura 2000
-  const lat = currentLat || 40.4168;
-  const lon = currentLon || -3.7038;
-  window.open('https://www.miteco.gob.es/es/biodiversidad/servicios/banco-datos-naturaleza/informacion-disponible/visor_red_natura_2000.aspx', '_blank');
-}
-
-
-// ═══════════════════════════════════════════════════════════════════════════
-// EXPORT CHECKLIST
-// ═══════════════════════════════════════════════════════════════════════════
-
-function exportChecklist() {
-  try {
-    const location = document.getElementById('loc-name').textContent || 'Sin ubicación';
-    const now = new Date();
-    const date = now.toLocaleDateString('es-ES') + ' ' + now.toLocaleTimeString('es-ES', {hour:'2-digit',minute:'2-digit'});
-    const done = checkedItems.size;
-    const total = totalItems;
-    const sep = '='.repeat(40);
-    const line = '-'.repeat(40);
-
-    let text = 'DRONECHECK ES — Checklist de vuelo
-';
-    text += sep + '
-';
-    text += 'Ubicacion: ' + location + '
-';
-    text += 'Fecha: ' + date + '
-';
-    text += 'Completado: ' + done + '/' + total + ' items
-';
-    text += 'Dron: <250g · Recreativo · Cat. A1
-';
-    text += line + '
-
-';
-
-    document.querySelectorAll('.level-check-row, .checklist-item').forEach(function(el) {
-      const textEl = el.querySelector('.level-item-title, .item-text');
-      if (!textEl) return;
-      const checked = el.classList.contains('checked');
-      text += (checked ? '[OK] ' : '[ ]  ') + textEl.textContent.trim() + '
-';
-    });
-
-    text += '
-' + line + '
-';
-    text += 'Generado con DroneCheck ES
-';
-    text += 'Verificar siempre en ENAIRE antes de volar.';
-
-    if (navigator.share) {
-      navigator.share({ title: 'Checklist DroneCheck ES', text: text })
-        .catch(function(e) { console.log('Share cancelled', e); });
-    } else {
-      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      const locName = location.split(',')[0].replace(/[^a-zA-Z0-9]/g, '_');
-      a.download = 'checklist_' + locName + '_' + now.toISOString().split('T')[0] + '.txt';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
-  } catch(e) {
-    alert('Error al exportar: ' + e.message);
-  }
-}
-
-
-// ═══════════════════════════════════════════════════════════════════════════
-// NOTAMs EN TIEMPO REAL — EUROCONTROL / ENAIRE
-// ═══════════════════════════════════════════════════════════════════════════
-
-async function fetchNOTAMs(lat, lon) {
-  try {
-    // EUROCONTROL Digital NOTAM service — public endpoint
-    const radius = 30; // nm
-    const url = `https://www.notams.faa.gov/dinsQueryWeb/queryRetrievalMapAction.do?reportType=Raw&retrieveLocId=LEMD&actionType=notamRetrievalByICAOs&submit=View+NOTAMs`;
-    
-    // Use ENAIRE's public NOTAM feed as primary source
-    // Fallback: show link to check manually
-    const notamSection = document.getElementById('notam-live-section');
-    if (!notamSection) return;
-
-    // Try to fetch Spanish NOTAMs via allotax/aviationweather API
-    const avwxUrl = `https://aviationweather.gov/api/data/notam?format=json&location=LEMD&type=N`;
-    
-    // Since external APIs have CORS restrictions in WebView,
-    // show a smart banner based on location with direct links
-    showNOTAMBanner(lat, lon);
-  } catch(e) {
-    console.log('NOTAM fetch error:', e);
-  }
-}
-
-function showNOTAMBanner(lat, lon) {
-  const section = document.getElementById('notam-live-section');
-  if (!section) return;
-
-  // Get nearest ICAO code based on location
-  const ICAO_BY_REGION = [
-    { name:'Madrid', icao:'LEMD', lat:40.4936, lon:-3.5670, radius:80 },
-    { name:'Barcelona', icao:'LEBL', lat:41.2971, lon:2.0785, radius:80 },
-    { name:'Málaga', icao:'LEMG', lat:36.6749, lon:-4.4991, radius:60 },
-    { name:'Palma', icao:'LEPA', lat:39.5517, lon:2.7388, radius:50 },
-    { name:'Alicante', icao:'LEAL', lat:38.2822, lon:-0.5582, radius:50 },
-    { name:'Valencia', icao:'LEVC', lat:39.4893, lon:-0.4816, radius:50 },
-    { name:'Bilbao', icao:'LEBB', lat:43.3011, lon:-2.9106, radius:50 },
-    { name:'Sevilla', icao:'LEZL', lat:37.4180, lon:-5.8931, radius:50 },
-    { name:'Santiago', icao:'LEST', lat:42.8963, lon:-8.4151, radius:50 },
-    { name:'A Coruña', icao:'LECO', lat:43.3021, lon:-8.3776, radius:40 },
-  ];
-
-  function haversineKm(la1,lo1,la2,lo2) {
-    const R=6371, dL=(la2-la1)*Math.PI/180, dO=(lo2-lo1)*Math.PI/180;
-    const a=Math.sin(dL/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dO/2)**2;
-    return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-  }
-
-  let nearest = { name:'España', icao:'LECS' };
-  let minDist = Infinity;
-  for (const r of ICAO_BY_REGION) {
-    const d = haversineKm(lat, lon, r.lat, r.lon);
-    if (d < minDist) { minDist = d; nearest = r; }
-  }
-
-  section.style.display = 'block';
-  section.innerHTML = `
-    <div class="notam-card">
-      <div class="notam-header">
-        <span class="notam-dot pulse"></span>
-        <span class="notam-title">NOTAMs activos — ${nearest.name}</span>
-        <span class="notam-icao">${nearest.icao}</span>
-      </div>
-      <div class="notam-body">
-        Consulta los NOTAMs activos en tiempo real antes de volar.
-        Los NOTAMs pueden restringir temporalmente zonas que aparecen libres en ENAIRE.
-      </div>
-      <div class="notam-links">
-        <a href="https://drones.enaire.es" target="_blank" class="notam-btn notam-btn-primary">
-          ✈ Ver en ENAIRE Drones
-        </a>
-        <a href="https://www.notams.faa.gov/dinsQueryWeb/queryRetrievalMapAction.do?reportType=Raw&retrieveLocId=${nearest.icao}&actionType=notamRetrievalByICAOs&submit=View+NOTAMs" target="_blank" class="notam-btn">
-          📋 NOTAMs ${nearest.icao}
-        </a>
-      </div>
-    </div>
-  `;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// DISTANCIA A ZONA PROTEGIDA MÁS CERCANA
-// ═══════════════════════════════════════════════════════════════════════════
-
-async function checkNearestProtectedArea(lat, lon) {
-  const distSection = document.getElementById('distance-section');
-  if (!distSection) return;
-  distSection.style.display = 'block';
-  distSection.innerHTML = '<div style="font-size:11px;color:var(--muted);padding:8px 0">Calculando distancia a zona protegida...</div>';
-
-  try {
-    const r = 50000; // 50km
-    const query = `[out:json][timeout:15];(
-      way["boundary"="protected_area"](around:${r},${lat},${lon});
-      relation["boundary"="protected_area"](around:${r},${lat},${lon});
-      way["boundary"="national_park"](around:${r},${lat},${lon});
-      relation["boundary"="national_park"](around:${r},${lat},${lon});
-      way["leisure"="nature_reserve"](around:${r},${lat},${lon});
-    );out center 5;`;
-
-    const res = await fetch('https://overpass-api.de/api/interpreter', {
-      method:'POST', body:'data='+encodeURIComponent(query)
-    });
-    const data = await res.json();
-
-    if (!data.elements || data.elements.length === 0) {
-      distSection.innerHTML = '<div class="distance-card distance-ok">✓ Sin zonas protegidas en 50km</div>';
-      return;
-    }
-
-    function haversineKm(la1,lo1,la2,lo2) {
-      const R=6371, dL=(la2-la1)*Math.PI/180, dO=(lo2-lo1)*Math.PI/180;
-      const a=Math.sin(dL/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dO/2)**2;
-      return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-    }
-
-    // Find nearest with center coordinates
-    let nearest = null, minDist = Infinity;
-    for (const el of data.elements) {
-      const clat = el.center ? el.center.lat : el.lat;
-      const clon = el.center ? el.center.lon : el.lon;
-      if (!clat || !clon) continue;
-      const d = haversineKm(lat, lon, clat, clon);
-      if (d < minDist) {
-        minDist = d;
-        nearest = { name: el.tags?.name || 'Espacio protegido', dist: d, tags: el.tags || {} };
-      }
-    }
-
-    if (!nearest) { distSection.innerHTML = ''; return; }
-
-    const dist = nearest.dist;
-    const isInside = dist < 2;
-    const statusCls = isInside ? 'distance-danger' : dist < 5 ? 'distance-warn' : 'distance-ok';
-    const icon = isInside ? '🔴' : dist < 5 ? '⚠️' : '✓';
-    const msg = isInside
-      ? `Dentro o en el límite de ${nearest.name}`
-      : `${nearest.name} a ${dist < 1 ? Math.round(dist*1000)+'m' : dist.toFixed(1)+'km'}`;
-
-    distSection.innerHTML = `
-      <div class="distance-card ${statusCls}">
-        <span>${icon}</span>
-        <div>
-          <div style="font-size:12px;font-weight:700">${msg}</div>
-          <div style="font-size:10px;opacity:0.7;margin-top:2px">Zona protegida más cercana</div>
-        </div>
-      </div>
-    `;
-  } catch(e) {
-    distSection.innerHTML = '';
-  }
-}
+function fetchOrdinanceIfNeeded(municipio) { /* no-op */ }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════════════════════
 
-
-
+document.getElementById('location-input').addEventListener('keydown', function(e) { if(e.key==='Enter') searchLocation(); });
+document.getElementById('ord-input').addEventListener('keydown', function(e) { if(e.key==='Enter') searchOrdinance(); });
 initBuiltinDB();
-
-function openClaudePrompt() {
-  const muni = currentMuni || document.getElementById('location-input').value.trim();
-  const prompt = `Eres un experto en normativa de drones en España. Busca si el municipio de "${muni}" tiene ordenanza municipal, normativa autonómica o restricciones locales específicas para el vuelo de drones recreativos con drones de menos de 250g (categoría abierta A1).
-
-Responde ÚNICAMENTE con un objeto JSON con esta estructura exacta, sin texto adicional, sin markdown, sin explicaciones:
-{
-  "municipio": "${muni}",
-  "provincia": "nombre de la provincia",
-  "restriction": "ban|partial|allowed|unknown",
-  "details": "descripción concisa de restricciones, máximo 200 caracteres",
-  "sourceUrl": "URL de la fuente oficial o null",
-  "sourceName": "nombre de la fuente",
-  "confidence": "high|medium|low"
-}
-
-Valores de restriction:
-- ban: vuelo prohibido sin autorización expresa
-- partial: restricciones parciales por zona, horario o temporada
-- allowed: sin restricciones municipales extra conocidas
-- unknown: no encontraste información específica`;
-
-  document.getElementById('claude-prompt-text').value = prompt;
-  document.getElementById('claude-modal').style.display = 'block';
-}
-
-function prefillAndShowForm(municipio) {
-  switchTab('ord');
-  setTimeout(function() {
-    var muniInput = document.getElementById('form-muni');
-    if (muniInput) muniInput.value = municipio;
-    var form = document.getElementById('add-form');
-    if (form) {
-      form.classList.add('show');
-      setTimeout(function() { form.scrollIntoView({ behavior:'smooth', block:'start' }); }, 100);
-    }
-  }, 300);
-}
-
-function copyClaudePrompt() {
-  const ta = document.getElementById('claude-prompt-text');
-  ta.select();
-  document.execCommand('copy');
-  const btn = document.getElementById('copy-btn');
-  btn.textContent = '✓ Copiado';
-  setTimeout(() => btn.textContent = 'Copiar prompt', 2000);
-}
-
-document.getElementById('location-input').addEventListener('keydown', e => { if(e.key==='Enter') searchLocation(); });
-document.getElementById('ord-input').addEventListener('keydown', e => { if(e.key==='Enter') searchOrdinance(); });
 renderAllOrdinances();
+renderQuickAccess();
+initTheme();
 </script>
 </body>
 </html>
